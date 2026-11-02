@@ -1,0 +1,29 @@
+name: Build Hacker Manhunt Fabric mod
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'hacker-manhunt/**'
+      - '.github/workflows/hacker-manhunt-build.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12'
+      - name: Compile Fabric mod
+        working-directory: hacker-manhunt
+        run: gradle build --stacktrace
+      - name: Upload compiled JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hacker-manhunt-jar
+          path: hacker-manhunt/build/libs/*.jar
+          if-no-files-found: error
