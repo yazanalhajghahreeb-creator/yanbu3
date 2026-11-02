@@ -7,6 +7,12 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Blocks;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.LodestoneTrackerComponent;
+import net.minecraft.util.math.GlobalPos;
+import net.minecraft.util.TypedActionResult;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import java.util.Optional;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.TntEntity;
@@ -72,34 +78,38 @@ public class HackerManhunt implements ModInitializer {
                     c.getSource().sendFeedback(() -> Text.literal("Manhunt reset"), true);
                     return Command.SINGLE_SUCCESS;
                 }))
-                .then(literal("strike").executes(c -> {
+                .then(literal("aim").executes(c -> {
                     ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
                     if (!p.getUuid().equals(hacker) || stage < 3 || strikeCooldown > 0) return 0;
                     ServerPlayerEntity closest = null;
-                    double best = 25.0;
+                    double best = 225.0;
                     for (UUID id : hunters) {
                         ServerPlayerEntity target = p.getServer().getPlayerManager().getPlayer(id);
                         if (target != null && target.isAlive() && target.getWorld() == p.getWorld() && p.squaredDistanceTo(target) <= best) {
                             best = p.squaredDistanceTo(target); closest = target;
                         }
                     }
-                    if (closest == null) { p.sendMessage(Text.literal("No hunter within 5 blocks"), true); return 0; }
-                    closest.damage(p.getDamageSources().playerAttack(p), 8.0f);
+                    if (closest == null) { p.sendMessage(Text.literal("No hunter within 15 blocks"), true); return 0; }
+                    closest.damage(p.getDamageSources().playerAttack(p), 6.0f);
                     strikeCooldown = 60;
                     return Command.SINGLE_SUCCESS;
                 }))
                 .then(literal("blast").executes(c -> {
                     ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
                     if (!p.getUuid().equals(hacker) || stage < 4 || blastCooldown > 0) return 0;
-                    Vec3d look = p.getRotationVec(1.0f);
-                    TntEntity tnt = new TntEntity(p.getWorld(), p.getX() + look.x * 2, p.getEyeY(), p.getZ() + look.z * 2, p);
-                    tnt.setFuse(45);
-                    tnt.setVelocity(look.multiply(1.4));
-                    p.getWorld().spawnEntity(tnt);
-                    blastCooldown = 100;
+                    launchBlast(p);
                     return Command.SINGLE_SUCCESS;
                 }))
         ));
+        UseItemCallback.EVENT.register((player, world, hand) -> {
+            ItemStack held = player.getStackInHand(hand);
+            if (world.isClient || !(player instanceof ServerPlayerEntity p)
+                || hacker == null || !p.getUuid().equals(hacker) || stage < 4
+                || !held.isOf(Items.FIRE_CHARGE)) return TypedActionResult.pass(held);
+            if (blastCooldown > 0) return TypedActionResult.fail(held);
+            launchBlast(p);
+            return TypedActionResult.success(held);
+        });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if (active || !(entity instanceof ServerPlayerEntity victim) || !hunters.contains(victim.getUuid())) return;
             if (source.getAttacker() instanceof ServerPlayerEntity attacker && attacker.getUuid().equals(hacker)) {
@@ -111,7 +121,11 @@ public class HackerManhunt implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (hacker == null) return;
             ServerPlayerEntity h = server.getPlayerManager().getPlayer(hacker);
-            if (h != null) grantFlight(h);
+            if (h != null) {
+                grantFlight(h);
+                if (stage >= 2) h.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 60, 2, false, false));
+                if (stage >= 4 && !hasCharge(h)) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
+            }
             if (blastCooldown > 0) blastCooldown--;
             if (strikeCooldown > 0) strikeCooldown--;
             if (!active) return;
@@ -125,10 +139,16 @@ public class HackerManhunt implements ModInitializer {
                 if (h != null && stage >= 1) scan(h);
                 for (UUID id : hunters) {
                     ServerPlayerEntity hunter = server.getPlayerManager().getPlayer(id);
-                    if (hunter != null && h != null && hunter.getWorld() == h.getWorld()
-                        && hunter.getMainHandStack().isOf(Items.COMPASS)) {
+                    if (hunter != null && h != null && hunter.getWorld() == h.getWorld()) {
+                        for (int slot = 0; slot < hunter.getInventory().size(); slot++) {
+                            ItemStack stack = hunter.getInventory().getStack(slot);
+                            if (stack.isOf(Items.COMPASS)) stack.set(DataComponentTypes.LODESTONE_TRACKER,
+                                new LodestoneTrackerComponent(Optional.of(GlobalPos.create(h.getWorld().getRegistryKey(), h.getBlockPos())), false));
+                        }
+                        if (hunter.getMainHandStack().isOf(Items.COMPASS)) {
                         hunter.sendMessage(Text.literal("Hacker: " + h.getBlockX() + ", " + h.getBlockY() + ", " + h.getBlockZ()
                             + " | " + (int)Math.sqrt(hunter.squaredDistanceTo(h)) + " blocks"), true);
+                        }
                     }
                 }
             }
@@ -145,10 +165,10 @@ public class HackerManhunt implements ModInitializer {
         for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) p.sendMessage(Text.literal("[Manhunt] " + msg), false);
     }
     private static void progress(MinecraftServer server, ServerPlayerEntity h) {
-        String[] powers = {"", "X-ray scan unlocked", "Speed unlocked", "Wall strike: /manhunt strike", "Explosive power: /manhunt blast", "Final hunter gear"};
+        String[] powers = {"", "X-ray scan unlocked", "Speed unlocked", "Auto-aim: /manhunt aim", "Infinite explosive fire charge (right click)", "Final hunter gear"};
         announce(server, "STAGE " + stage + " - " + powers[stage]);
-        if (h != null && stage >= 2) h.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 999999, 1, false, false));
-        for (UUID id : hunters) {
+        if (h != null && stage >= 4) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
+        if (stage != 4) for (UUID id : hunters) {
             ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
             if (p != null) equip(p, stage);
         }
@@ -168,6 +188,26 @@ public class HackerManhunt implements ModInitializer {
         Item pick = level == 1 ? Items.WOODEN_PICKAXE : level == 2 ? Items.IRON_PICKAXE : level <= 4 ? Items.DIAMOND_PICKAXE : Items.NETHERITE_PICKAXE;
         p.giveItemStack(new ItemStack(sword));
         p.giveItemStack(new ItemStack(pick));
+        if (level >= 3) {
+            p.giveItemStack(new ItemStack(level >= 5 ? Items.NETHERITE_AXE : Items.DIAMOND_AXE));
+            p.giveItemStack(new ItemStack(Items.BOW));
+            p.giveItemStack(new ItemStack(Items.ARROW, 64));
+        }
+    }
+    private static boolean hasCharge(ServerPlayerEntity p) {
+        for (int i = 0; i < p.getInventory().size(); i++)
+            if (p.getInventory().getStack(i).isOf(Items.FIRE_CHARGE)) return true;
+        return false;
+    }
+    private static void launchBlast(ServerPlayerEntity p) {
+        Vec3d look = p.getRotationVec(1.0f);
+        for (int i = 0; i < 2; i++) {
+            TntEntity tnt = new TntEntity(p.getWorld(), p.getX() + look.x * 2, p.getEyeY(), p.getZ() + look.z * 2, p);
+            tnt.setFuse(22);
+            tnt.setVelocity(look.multiply(2.5).add(0, i * 0.04, 0));
+            p.getWorld().spawnEntity(tnt);
+        }
+        blastCooldown = 50;
     }
     private static void scan(ServerPlayerEntity h) {
         for (ServerPlayerEntity p : h.getServer().getPlayerManager().getPlayerList())
@@ -182,7 +222,12 @@ public class HackerManhunt implements ModInitializer {
             var block = h.getWorld().getBlockState(pos).getBlock();
             if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE
                 || block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE
-                || block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) {
+                || block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE
+                || block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE
+                || block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE
+                || block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE
+                || block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE
+                || block == Blocks.COPPER_ORE || block == Blocks.DEEPSLATE_COPPER_ORE) {
                 int d = (int)pos.getSquaredDistance(center);
                 if (d < best) { best = d; closest = pos.toImmutable(); }
             }
