@@ -13,6 +13,8 @@ import net.minecraft.util.math.GlobalPos;
 import net.minecraft.util.TypedActionResult;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.TntEntity;
@@ -44,6 +46,7 @@ public class HackerManhunt implements ModInitializer {
     private static int scanCooldown = 0;
     private static int blastCooldown = 0;
     private static int strikeCooldown = 0;
+    private static final List<TntEntity> boostedTnt = new ArrayList<>();
 
     @Override public void onInitialize() {
         CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(
@@ -127,6 +130,16 @@ public class HackerManhunt implements ModInitializer {
                 if (stage >= 4 && !hasCharge(h)) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
             }
             if (blastCooldown > 0) blastCooldown--;
+            boostedTnt.removeIf(tnt -> {
+                if (!tnt.isAlive()) return true;
+                if (tnt.getFuse() <= 1) {
+                    tnt.getWorld().createExplosion(tnt, tnt.getX(), tnt.getY(), tnt.getZ(),
+                        4.8f, net.minecraft.world.World.ExplosionSourceType.TNT);
+                    tnt.discard();
+                    return true;
+                }
+                return false;
+            });
             if (strikeCooldown > 0) strikeCooldown--;
             // Tracking runs immediately, even before the first hacker kill.
             if (h != null) updateCompasses(server, h);
@@ -206,8 +219,7 @@ public class HackerManhunt implements ModInitializer {
         tnt.setFuse(22);
         tnt.setVelocity(look.multiply(2.5));
         p.getWorld().spawnEntity(tnt);
-        // Vanilla TNT is explosion power 4.0. The projectile itself is currently
-        // vanilla strength; exact 1.2x power needs a custom explosion implementation.
+        boostedTnt.add(tnt); // 4.8 = 20% above vanilla TNT power 4.0
         blastCooldown = 50;
     }
     private static void scan(ServerPlayerEntity h) {
