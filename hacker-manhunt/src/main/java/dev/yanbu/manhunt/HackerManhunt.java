@@ -128,6 +128,8 @@ public class HackerManhunt implements ModInitializer {
             }
             if (blastCooldown > 0) blastCooldown--;
             if (strikeCooldown > 0) strikeCooldown--;
+            // Tracking runs immediately, even before the first hacker kill.
+            if (h != null) updateCompasses(server, h);
             if (!active) return;
             ticks++;
             if (ticks >= intervalSeconds * 20 && stage < 5) {
@@ -137,24 +139,23 @@ public class HackerManhunt implements ModInitializer {
             if (++scanCooldown >= 100) {
                 scanCooldown = 0;
                 if (h != null && stage >= 1) scan(h);
-                for (UUID id : hunters) {
-                    ServerPlayerEntity hunter = server.getPlayerManager().getPlayer(id);
-                    if (hunter != null && h != null && hunter.getWorld() == h.getWorld()) {
-                        for (int slot = 0; slot < hunter.getInventory().size(); slot++) {
-                            ItemStack stack = hunter.getInventory().getStack(slot);
-                            if (stack.isOf(Items.COMPASS)) stack.set(DataComponentTypes.LODESTONE_TRACKER,
-                                new LodestoneTrackerComponent(Optional.of(GlobalPos.create(h.getWorld().getRegistryKey(), h.getBlockPos())), false));
-                        }
-                        if (hunter.getMainHandStack().isOf(Items.COMPASS)) {
-                        hunter.sendMessage(Text.literal("Hacker: " + h.getBlockX() + ", " + h.getBlockY() + ", " + h.getBlockZ()
-                            + " | " + (int)Math.sqrt(hunter.squaredDistanceTo(h)) + " blocks"), true);
-                        }
-                    }
-                }
+
             }
         });
     }
 
+    private static void updateCompasses(MinecraftServer server, ServerPlayerEntity h) {
+        for (UUID id : hunters) {
+            ServerPlayerEntity hunter = server.getPlayerManager().getPlayer(id);
+            if (hunter == null || hunter.getWorld() != h.getWorld()) continue;
+            GlobalPos target = GlobalPos.create(h.getWorld().getRegistryKey(), h.getBlockPos());
+            for (int slot = 0; slot < hunter.getInventory().size(); slot++) {
+                ItemStack stack = hunter.getInventory().getStack(slot);
+                if (stack.isOf(Items.COMPASS)) stack.set(DataComponentTypes.LODESTONE_TRACKER,
+                    new LodestoneTrackerComponent(Optional.of(target), false));
+            }
+        }
+    }
     private static void grantFlight(ServerPlayerEntity player) {
         if (!player.getAbilities().allowFlying) {
             player.getAbilities().allowFlying = true;
@@ -201,12 +202,12 @@ public class HackerManhunt implements ModInitializer {
     }
     private static void launchBlast(ServerPlayerEntity p) {
         Vec3d look = p.getRotationVec(1.0f);
-        for (int i = 0; i < 2; i++) {
-            TntEntity tnt = new TntEntity(p.getWorld(), p.getX() + look.x * 2, p.getEyeY(), p.getZ() + look.z * 2, p);
-            tnt.setFuse(22);
-            tnt.setVelocity(look.multiply(2.5).add(0, i * 0.04, 0));
-            p.getWorld().spawnEntity(tnt);
-        }
+        TntEntity tnt = new TntEntity(p.getWorld(), p.getX() + look.x * 2, p.getEyeY(), p.getZ() + look.z * 2, p);
+        tnt.setFuse(22);
+        tnt.setVelocity(look.multiply(2.5));
+        p.getWorld().spawnEntity(tnt);
+        // Vanilla TNT is explosion power 4.0. The projectile itself is currently
+        // vanilla strength; exact 1.2x power needs a custom explosion implementation.
         blastCooldown = 50;
     }
     private static void scan(ServerPlayerEntity h) {
