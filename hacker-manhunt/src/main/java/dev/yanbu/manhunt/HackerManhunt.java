@@ -55,6 +55,8 @@ public class HackerManhunt implements ModInitializer {
     private static int scanCooldown = 0;
     private static int blastCooldown = 0;
     private static int networkTick = 0;
+    private static boolean xrayVisible = true;
+    private static int xrayToggleCooldown = 0;
     private static final Identifier RAPID_ATTACK = Identifier.of("hackermanhunt", "rapid_attack");
     private static final List<TntEntity> boostedTnt = new ArrayList<>();
 
@@ -93,6 +95,7 @@ public class HackerManhunt implements ModInitializer {
                         current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED).removeModifier(RAPID_ATTACK);
 
                     hacker = null; hunters.clear(); active = false; ticks = 0; stage = 0;
+                    xrayVisible = true; xrayToggleCooldown = 0;
                     c.getSource().sendFeedback(() -> Text.literal("Manhunt reset"), true);
                     return Command.SINGLE_SUCCESS;
                 }))
@@ -106,8 +109,22 @@ public class HackerManhunt implements ModInitializer {
         UseItemCallback.EVENT.register((player, world, hand) -> {
             ItemStack held = player.getStackInHand(hand);
             if (world.isClient || !(player instanceof ServerPlayerEntity p)
-                || hacker == null || !p.getUuid().equals(hacker) || stage < 4
-                || !held.isOf(Items.FIRE_CHARGE)) return TypedActionResult.pass(held);
+                || hacker == null || !p.getUuid().equals(hacker)) return TypedActionResult.pass(held);
+            if (isXraySwitch(held)) {
+                if (stage < 1) {
+                    p.sendMessage(Text.literal("X-Ray unlocks at stage 1"), true);
+                    return TypedActionResult.fail(held);
+                }
+                if (xrayToggleCooldown == 0) {
+                    xrayVisible = !xrayVisible;
+                    xrayToggleCooldown = 8;
+                    p.sendMessage(Text.literal("X-Ray " + (xrayVisible ? "ON" : "OFF")), true);
+                    if (ServerPlayNetworking.canSend(p, XrayPayload.ID))
+                        ServerPlayNetworking.send(p, new XrayPayload(xrayVisible, hacker.toString()));
+                }
+                return TypedActionResult.success(held);
+            }
+            if (stage < 4 || !held.isOf(Items.FIRE_CHARGE)) return TypedActionResult.pass(held);
             if (blastCooldown > 0) return TypedActionResult.fail(held);
             launchBlast(p);
             return TypedActionResult.success(held);
@@ -126,9 +143,11 @@ public class HackerManhunt implements ModInitializer {
             if (h != null) {
                 grantFlight(h);
                 if (stage >= 2) h.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 60, 2, false, false));
+                if (stage >= 1 && !hasXraySwitch(h)) h.giveItemStack(makeXraySwitch());
                 if (stage >= 4 && !hasCharge(h)) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
             }
             if (blastCooldown > 0) blastCooldown--;
+            if (xrayToggleCooldown > 0) xrayToggleCooldown--;
             boostedTnt.removeIf(tnt -> {
                 if (!tnt.isAlive()) return true;
                 if (tnt.getFuse() <= 1) {
@@ -156,7 +175,7 @@ public class HackerManhunt implements ModInitializer {
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                     if (ServerPlayNetworking.canSend(player, XrayPayload.ID)) {
                         ServerPlayNetworking.send(player, new XrayPayload(
-                            active && stage >= 1 && player.getUuid().equals(hacker),
+                            active && stage >= 1 && xrayVisible && player.getUuid().equals(hacker),
                             hacker == null ? "" : hacker.toString()));
                     }
                 }
@@ -208,6 +227,7 @@ public class HackerManhunt implements ModInitializer {
     private static void progress(MinecraftServer server, ServerPlayerEntity h) {
         String[] powers = {"", "X-ray scan unlocked", "Speed unlocked", "Rapid attacks unlocked automatically", "Infinite explosive fire charge (right click)", "Final hunter gear"};
         announce(server, "STAGE " + stage + " - " + powers[stage]);
+        if (h != null && stage == 1 && !hasXraySwitch(h)) h.giveItemStack(makeXraySwitch());
         if (h != null && stage >= 4) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
         if (stage != 4) for (UUID id : hunters) {
             ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
@@ -234,6 +254,21 @@ public class HackerManhunt implements ModInitializer {
             p.giveItemStack(new ItemStack(Items.BOW));
             p.giveItemStack(new ItemStack(Items.ARROW, 64));
         }
+    }
+    private static ItemStack makeXraySwitch() {
+        ItemStack stack = new ItemStack(Items.AMETHYST_SHARD);
+        stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Hacker Yanbu - X-Ray ON/OFF"));
+        return stack;
+    }
+    private static boolean isXraySwitch(ItemStack stack) {
+        Text name = stack.get(DataComponentTypes.CUSTOM_NAME);
+        return stack.isOf(Items.AMETHYST_SHARD) && name != null &&
+            name.getString().equals("Hacker Yanbu - X-Ray ON/OFF");
+    }
+    private static boolean hasXraySwitch(ServerPlayerEntity player) {
+        for (int i = 0; i < player.getInventory().size(); i++)
+            if (isXraySwitch(player.getInventory().getStack(i))) return true;
+        return false;
     }
     private static boolean hasCharge(ServerPlayerEntity p) {
         for (int i = 0; i < p.getInventory().size(); i++)
