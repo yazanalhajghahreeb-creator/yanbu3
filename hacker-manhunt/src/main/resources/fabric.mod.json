@@ -1,10 +1,25 @@
 {
- "schemaVersion":1,
- "id":"hackermanhunt",
- "version":"${version}",
- "name":"Hacker vs 3 Hunters",
- "description":"Timed manhunt prototype with first-kill activation, hunter gear progression, flight, scan, wall strike and explosive skill.",
- "environment":"*",
- "entrypoints":{"main":["dev.yanbu.manhunt.HackerManhunt"]},
- "depends":{"fabricloader":">=0.16.0","minecraft":"~1.21.1","java":">=21","fabric-api":"*"}
+  "schemaVersion": 1,
+  "id": "hackermanhunt",
+  "version": "${version}",
+  "name": "Hacker vs 3 Hunters",
+  "description": "First-kill timed Hacker Manhunt with client-only X-ray, hunter compass, gear progression and explosive power.",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.yanbu.manhunt.HackerManhunt"
+    ],
+    "client": [
+      "dev.yanbu.manhunt.client.ManhuntClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "mixins": [
+    "hackermanhunt.client.mixins.json"
+  ]
 }
