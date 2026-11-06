@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "hackermanhunt",
   "version": "${version}",
-  "name": "Hacker vs 3 Hunters",
+  "name": "Hacker Yanbu",
   "description": "First-kill timed Hacker Manhunt with client-only X-ray, hunter compass, gear progression and explosive power.",
   "environment": "*",
   "entrypoints": {
