@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.yanbu.manhunt.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "OreRenderMixin",
+    "EntityOutlineMixin",
+    "CompassHandMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}
