@@ -53,3 +53,11 @@ Known limitations: X-ray visually removes ordinary block models on the hacker cl
 - Added ore-type colors to the local through-wall outline rendering (diamond cyan, iron orange, gold yellow, redstone red, emerald green, lapis blue, coal light grey).
 - This remains client-side and role-gated to the hacker; hunters should have no mod X-ray. Compass implementation was not modified in this revision.
 - Not yet validated with a fresh GitHub Actions build or multiplayer test. If build fails, inspect Actions logs before installation.
+
+
+## Hacker Yanbu v0.2.1 - visual fix (2026-11-06)
+- Fixed inconsistent outlines: both ends of each ore cube edge now use the same ore-specific color. Cube outlines still need in-game visual verification.
+- When the server identifies a different player as hacker, this client suppresses glowing outlines on living entities. This also hides ordinary vanilla glowing effects from those clients while assigned to non-hacker view.
+- The hacker retains local glowing player and mob outlines while X-ray is active.
+- Compass, armor progression, and timed abilities are untouched by this patch.
+- Build artifact should be named `hacker-yanbu-0.2.1.jar` if the GitHub Actions build succeeds; untested until then.
