@@ -21,6 +21,13 @@ import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.util.Identifier;
+import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.EntityType;
+import java.util.Map;
+import java.util.HashMap;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -45,7 +52,8 @@ public class HackerManhunt implements ModInitializer {
     private static int intervalSeconds = 300;
     private static int scanCooldown = 0;
     private static int blastCooldown = 0;
-    private static int strikeCooldown = 0;
+    private static final Map<BlockPos, ArmorStandEntity> oreMarkers = new HashMap<>();
+    private static final Identifier RAPID_ATTACK = Identifier.of("hackermanhunt", "rapid_attack");
     private static final List<TntEntity> boostedTnt = new ArrayList<>();
 
     @Override public void onInitialize() {
@@ -77,24 +85,12 @@ public class HackerManhunt implements ModInitializer {
                         ServerPlayerEntity old = c.getSource().getServer().getPlayerManager().getPlayer(hacker);
                         if (old != null) { old.getAbilities().allowFlying = false; old.getAbilities().flying = false; old.sendAbilitiesUpdate(); }
                     }
+                    ServerPlayerEntity current = c.getSource().getServer().getPlayerManager().getPlayer(hacker);
+                    if (current != null && current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED) != null)
+                        current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED).removeModifier(RAPID_ATTACK);
+                    clearOreMarkers();
                     hacker = null; hunters.clear(); active = false; ticks = 0; stage = 0;
                     c.getSource().sendFeedback(() -> Text.literal("Manhunt reset"), true);
-                    return Command.SINGLE_SUCCESS;
-                }))
-                .then(literal("aim").executes(c -> {
-                    ServerPlayerEntity p = c.getSource().getPlayerOrThrow();
-                    if (!p.getUuid().equals(hacker) || stage < 3 || strikeCooldown > 0) return 0;
-                    ServerPlayerEntity closest = null;
-                    double best = 225.0;
-                    for (UUID id : hunters) {
-                        ServerPlayerEntity target = p.getServer().getPlayerManager().getPlayer(id);
-                        if (target != null && target.isAlive() && target.getWorld() == p.getWorld() && p.squaredDistanceTo(target) <= best) {
-                            best = p.squaredDistanceTo(target); closest = target;
-                        }
-                    }
-                    if (closest == null) { p.sendMessage(Text.literal("No hunter within 15 blocks"), true); return 0; }
-                    closest.damage(p.getDamageSources().playerAttack(p), 6.0f);
-                    strikeCooldown = 60;
                     return Command.SINGLE_SUCCESS;
                 }))
                 .then(literal("blast").executes(c -> {
@@ -140,16 +136,27 @@ public class HackerManhunt implements ModInitializer {
                 }
                 return false;
             });
-            if (strikeCooldown > 0) strikeCooldown--;
+
+            if (h != null) {
+                var attack = h.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED);
+                if (attack != null) {
+                    if (stage >= 3 && !attack.hasModifier(RAPID_ATTACK)) {
+                        attack.addPersistentModifier(new EntityAttributeModifier(RAPID_ATTACK, 100.0,
+                            EntityAttributeModifier.Operation.ADD_VALUE));
+                    } else if (stage < 3 && attack.hasModifier(RAPID_ATTACK)) {
+                        attack.removeModifier(RAPID_ATTACK);
+                    }
+                }
+            }
             // Tracking runs immediately, even before the first hacker kill.
             if (h != null) updateCompasses(server, h);
-            if (!active) return;
+            if (!active) { clearOreMarkers(); return; }
             ticks++;
             if (ticks >= intervalSeconds * 20 && stage < 5) {
                 ticks = 0; stage++;
                 progress(server, h);
             }
-            if (++scanCooldown >= 100) {
+            if (++scanCooldown >= 40) {
                 scanCooldown = 0;
                 if (h != null && stage >= 1) scan(h);
 
@@ -161,11 +168,18 @@ public class HackerManhunt implements ModInitializer {
         for (UUID id : hunters) {
             ServerPlayerEntity hunter = server.getPlayerManager().getPlayer(id);
             if (hunter == null || hunter.getWorld() != h.getWorld()) continue;
+            // Only update when target moves at least two blocks, to avoid jitter
+            // caused by changing the lodestone target every frame.
             GlobalPos target = GlobalPos.create(h.getWorld().getRegistryKey(), h.getBlockPos());
             for (int slot = 0; slot < hunter.getInventory().size(); slot++) {
                 ItemStack stack = hunter.getInventory().getStack(slot);
-                if (stack.isOf(Items.COMPASS)) stack.set(DataComponentTypes.LODESTONE_TRACKER,
-                    new LodestoneTrackerComponent(Optional.of(target), false));
+                if (!stack.isOf(Items.COMPASS)) continue;
+                var tracker = stack.get(DataComponentTypes.LODESTONE_TRACKER);
+                if (tracker == null || tracker.target().isEmpty()
+                    || tracker.target().get().pos().getSquaredDistance(h.getBlockPos()) >= 4) {
+                    stack.set(DataComponentTypes.LODESTONE_TRACKER,
+                        new LodestoneTrackerComponent(Optional.of(target), false));
+                }
             }
         }
     }
@@ -179,7 +193,7 @@ public class HackerManhunt implements ModInitializer {
         for (ServerPlayerEntity p : s.getPlayerManager().getPlayerList()) p.sendMessage(Text.literal("[Manhunt] " + msg), false);
     }
     private static void progress(MinecraftServer server, ServerPlayerEntity h) {
-        String[] powers = {"", "X-ray scan unlocked", "Speed unlocked", "Auto-aim: /manhunt aim", "Infinite explosive fire charge (right click)", "Final hunter gear"};
+        String[] powers = {"", "X-ray scan unlocked", "Speed unlocked", "Rapid attacks unlocked automatically", "Infinite explosive fire charge (right click)", "Final hunter gear"};
         announce(server, "STAGE " + stage + " - " + powers[stage]);
         if (h != null && stage >= 4) h.giveItemStack(new ItemStack(Items.FIRE_CHARGE));
         if (stage != 4) for (UUID id : hunters) {
@@ -208,6 +222,10 @@ public class HackerManhunt implements ModInitializer {
             p.giveItemStack(new ItemStack(Items.ARROW, 64));
         }
     }
+    private static void clearOreMarkers() {
+        for (ArmorStandEntity marker : oreMarkers.values()) marker.discard();
+        oreMarkers.clear();
+    }
     private static boolean hasCharge(ServerPlayerEntity p) {
         for (int i = 0; i < p.getInventory().size(); i++)
             if (p.getInventory().getStack(i).isOf(Items.FIRE_CHARGE)) return true;
@@ -229,22 +247,37 @@ public class HackerManhunt implements ModInitializer {
         h.getWorld().getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class, h.getBoundingBox().expand(24), e -> true)
             .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 120, 0, false, false)));
         BlockPos center = h.getBlockPos();
-        BlockPos closest = null;
-        int best = Integer.MAX_VALUE;
-        for (BlockPos pos : BlockPos.iterate(center.add(-12,-12,-12),center.add(12,12,12))) {
+        Map<BlockPos, String> found = new HashMap<>();
+        // Limit the scan to reduce lag and entity spam.
+        for (BlockPos pos : BlockPos.iterate(center.add(-10,-8,-10), center.add(10,8,10))) {
             var block = h.getWorld().getBlockState(pos).getBlock();
-            if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE
-                || block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE
-                || block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE
-                || block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE
-                || block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE
-                || block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE
-                || block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE
-                || block == Blocks.COPPER_ORE || block == Blocks.DEEPSLATE_COPPER_ORE) {
-                int d = (int)pos.getSquaredDistance(center);
-                if (d < best) { best = d; closest = pos.toImmutable(); }
-            }
+            String ore = null;
+            if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE) ore = "Diamond";
+            else if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) ore = "Iron";
+            else if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) ore = "Coal";
+            else if (block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE) ore = "Emerald";
+            else if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) ore = "Gold";
+            else if (block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE) ore = "Redstone";
+            else if (block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE) ore = "Lapis";
+            if (ore != null && found.size() < 80) found.put(pos.toImmutable(), ore);
         }
-        if (closest != null) h.sendMessage(Text.literal("Ore scan: " + closest.getX() + " " + closest.getY() + " " + closest.getZ()), true);
+        oreMarkers.entrySet().removeIf(e -> {
+            if (found.containsKey(e.getKey()) && e.getValue().isAlive()) return false;
+            e.getValue().discard();
+            return true;
+        });
+        for (var e : found.entrySet()) {
+            if (oreMarkers.containsKey(e.getKey())) continue;
+            ArmorStandEntity marker = new ArmorStandEntity(EntityType.ARMOR_STAND, h.getWorld());
+            marker.refreshPositionAndAngles(e.getKey().getX() + .5, e.getKey().getY() + .5, e.getKey().getZ() + .5, 0, 0);
+            marker.setInvisible(true);
+            marker.setInvulnerable(true);
+            marker.setNoGravity(true);
+            marker.setGlowing(true);
+            marker.setCustomName(Text.literal(e.getValue() + " ore"));
+            marker.setCustomNameVisible(true);
+            h.getWorld().spawnEntity(marker);
+            oreMarkers.put(e.getKey(), marker);
+        }
     }
 }
