@@ -4,9 +4,10 @@
   "package": "dev.yanbu.manhunt.client.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "OreRenderMixin",
     "EntityOutlineMixin",
     "CompassHandMixin"
   ],
-  "injectors": { "defaultRequire": 1 }
+  "injectors": {
+    "defaultRequire": 1
+  }
 }
