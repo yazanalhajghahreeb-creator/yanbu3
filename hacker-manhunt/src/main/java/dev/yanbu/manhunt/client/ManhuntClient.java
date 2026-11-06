@@ -36,6 +36,14 @@ public final class ManhuntClient implements ClientModInitializer {
         return xrayEnabled && client.player != null && authorizedHacker != null
             && authorizedHacker.equals(client.player.getUuid());
     }
+    // The server distributes the hacker UUID to all participants.
+    // Non-hacker clients must never render Manhunt outlines.
+    public static boolean isHunterView() {
+        var client = MinecraftClient.getInstance();
+        return authorizedHacker != null && client.player != null
+            && !authorizedHacker.equals(client.player.getUuid());
+    }
+
     public static boolean isOre(BlockState state) {
         Block block = state.getBlock();
         return block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE
@@ -97,7 +105,7 @@ public final class ManhuntClient implements ClientModInitializer {
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
             RenderSystem.setShader(GameRenderer::getRenderTypeLinesProgram);
-            RenderSystem.lineWidth(2.0F);
+            RenderSystem.lineWidth(2.5F);
             BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
             for (BlockPos pos : nearbyOres) {
                 float x = pos.getX(), y = pos.getY(), z = pos.getZ();
@@ -122,7 +130,7 @@ public final class ManhuntClient implements ClientModInitializer {
         Vector3f direction = new Vector3f(x2-x1, y2-y1, z2-z1).normalize();
         builder.vertex(matrix.getPositionMatrix(), x1, y1, z1).color(red,green,blue,255)
             .normal(matrix, direction.x, direction.y, direction.z);
-        builder.vertex(matrix.getPositionMatrix(), x2, y2, z2).color(255,255,255,255)
+        builder.vertex(matrix.getPositionMatrix(), x2, y2, z2).color(red,green,blue,255)
             .normal(matrix, direction.x, direction.y, direction.z);
     }
 }
