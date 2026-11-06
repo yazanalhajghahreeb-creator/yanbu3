@@ -24,3 +24,10 @@
 
 ## Build
 Install JDK 21 and Gradle 8.12, then from this folder run `gradle build`. Check `build/libs/` for the produced .jar. Modrinth's existing mods aren't automatically bundled.
+
+
+## Experimental update (2026-11-06)
+- `/manhunt aim` has been removed. At the third stage, the hacker receives a passive attack-speed modifier instead; there is no ability command or custom cooldown for this modifier. Minecraft combat still has vanilla damage mechanics.
+- Tracking compasses are already updated before the first kill. Their target now moves in increments of two blocks to reduce needle jitter; this cannot guarantee an absolutely stationary needle when the player moves. A dedicated client-side compass renderer is needed for smooth/precise tracking.
+- Nearby ores now receive glowing invisible armor-stand markers with labels (diamond, iron, coal, emerald, gold, redstone, lapis). **Known limitation:** these entities are currently visible to everyone in the same world, not only the hacker. The feature is experimental and not the intended hacker-only X-ray.
+- The new changes have NOT been validated by a successful build or multiplayer playtest. Do not treat the previous JAR as updated.
