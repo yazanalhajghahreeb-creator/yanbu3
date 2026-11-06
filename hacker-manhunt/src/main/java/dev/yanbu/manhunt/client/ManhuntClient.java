@@ -49,6 +49,17 @@ public final class ManhuntClient implements ClientModInitializer {
             || block == Blocks.NETHER_QUARTZ_ORE || block == Blocks.NETHER_GOLD_ORE
             || block == Blocks.ANCIENT_DEBRIS;
     }
+    private static int oreTint(BlockState state) {
+        Block b = state.getBlock();
+        if (b == Blocks.DIAMOND_ORE || b == Blocks.DEEPSLATE_DIAMOND_ORE) return 0x00EFFF;
+        if (b == Blocks.EMERALD_ORE || b == Blocks.DEEPSLATE_EMERALD_ORE) return 0x22EE55;
+        if (b == Blocks.REDSTONE_ORE || b == Blocks.DEEPSLATE_REDSTONE_ORE) return 0xFF3333;
+        if (b == Blocks.GOLD_ORE || b == Blocks.DEEPSLATE_GOLD_ORE) return 0xFFCE22;
+        if (b == Blocks.LAPIS_ORE || b == Blocks.DEEPSLATE_LAPIS_ORE) return 0x3377FF;
+        if (b == Blocks.IRON_ORE || b == Blocks.DEEPSLATE_IRON_ORE) return 0xFFAA66;
+        if (b == Blocks.COAL_ORE || b == Blocks.DEEPSLATE_COAL_ORE) return 0xDDDDDD;
+        return 0xFFFFFF;
+    }
     @Override public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(HackerManhunt.XrayPayload.ID,
             (payload, context) -> context.client().execute(() -> {
@@ -90,10 +101,11 @@ public final class ManhuntClient implements ClientModInitializer {
             BufferBuilder buffer = Tessellator.getInstance().begin(VertexFormat.DrawMode.LINES, VertexFormats.LINES);
             for (BlockPos pos : nearbyOres) {
                 float x = pos.getX(), y = pos.getY(), z = pos.getZ();
+                int rgb = oreTint(MinecraftClient.getInstance().world.getBlockState(pos));
                 for (int a = 0; a < 2; a++) for (int b = 0; b < 2; b++) {
-                    drawLine(buffer, matrices, x, y + a, z + b, x + 1, y + a, z + b);
-                    drawLine(buffer, matrices, x + a, y, z + b, x + a, y + 1, z + b);
-                    drawLine(buffer, matrices, x + a, y + b, z, x + a, y + b, z + 1);
+                    drawLine(buffer, matrices, x, y + a, z + b, x + 1, y + a, z + b, rgb);
+                    drawLine(buffer, matrices, x + a, y, z + b, x + a, y + 1, z + b, rgb);
+                    drawLine(buffer, matrices, x + a, y + b, z, x + a, y + b, z + 1, rgb);
                 }
             }
             BufferRenderer.drawWithGlobalProgram(buffer.end());
@@ -104,10 +116,11 @@ public final class ManhuntClient implements ClientModInitializer {
     }
 
     private static void drawLine(BufferBuilder builder, MatrixStack stack,
-                                 float x1, float y1, float z1, float x2, float y2, float z2) {
+                                 float x1, float y1, float z1, float x2, float y2, float z2, int rgb) {
         var matrix = stack.peek();
+        int red = (rgb >> 16) & 255, green = (rgb >> 8) & 255, blue = rgb & 255;
         Vector3f direction = new Vector3f(x2-x1, y2-y1, z2-z1).normalize();
-        builder.vertex(matrix.getPositionMatrix(), x1, y1, z1).color(255,255,255,255)
+        builder.vertex(matrix.getPositionMatrix(), x1, y1, z1).color(red,green,blue,255)
             .normal(matrix, direction.x, direction.y, direction.z);
         builder.vertex(matrix.getPositionMatrix(), x2, y2, z2).color(255,255,255,255)
             .normal(matrix, direction.x, direction.y, direction.z);
