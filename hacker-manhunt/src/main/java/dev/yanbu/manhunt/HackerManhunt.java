@@ -24,10 +24,12 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.util.Identifier;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.EntityType;
-import java.util.Map;
-import java.util.HashMap;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -52,12 +54,12 @@ public class HackerManhunt implements ModInitializer {
     private static int intervalSeconds = 300;
     private static int scanCooldown = 0;
     private static int blastCooldown = 0;
-    // NOTE: markers are world entities and currently visible to all players, not just hacker.
-    private static final Map<BlockPos, ArmorStandEntity> oreMarkers = new HashMap<>();
+    private static int networkTick = 0;
     private static final Identifier RAPID_ATTACK = Identifier.of("hackermanhunt", "rapid_attack");
     private static final List<TntEntity> boostedTnt = new ArrayList<>();
 
     @Override public void onInitialize() {
+        PayloadTypeRegistry.playS2C().register(XrayPayload.ID, XrayPayload.CODEC);
         CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> dispatcher.register(
             literal("manhunt")
                 .then(literal("hacker").requires(s -> s.hasPermissionLevel(2))
@@ -89,7 +91,7 @@ public class HackerManhunt implements ModInitializer {
                     ServerPlayerEntity current = hacker == null ? null : c.getSource().getServer().getPlayerManager().getPlayer(hacker);
                     if (current != null && current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED) != null)
                         current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED).removeModifier(RAPID_ATTACK);
-                    clearOreMarkers();
+
                     hacker = null; hunters.clear(); active = false; ticks = 0; stage = 0;
                     c.getSource().sendFeedback(() -> Text.literal("Manhunt reset"), true);
                     return Command.SINGLE_SUCCESS;
@@ -149,9 +151,18 @@ public class HackerManhunt implements ModInitializer {
                     }
                 }
             }
+            if (++networkTick >= 20) {
+                networkTick = 0;
+                for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                    if (ServerPlayNetworking.canSend(player, XrayPayload.ID)) {
+                        ServerPlayNetworking.send(player, new XrayPayload(
+                            active && stage >= 1 && player.getUuid().equals(hacker)));
+                    }
+                }
+            }
             // Tracking runs immediately, even before the first hacker kill.
             if (h != null) updateCompasses(server, h);
-            if (!active) { clearOreMarkers(); return; }
+            if (!active) return;
             ticks++;
             if (ticks >= intervalSeconds * 20 && stage < 5) {
                 ticks = 0; stage++;
@@ -159,7 +170,7 @@ public class HackerManhunt implements ModInitializer {
             }
             if (++scanCooldown >= 40) {
                 scanCooldown = 0;
-                if (h != null && stage >= 1) scan(h);
+                // X-ray is rendered client-side for the hacker only.
 
             }
         });
@@ -223,10 +234,6 @@ public class HackerManhunt implements ModInitializer {
             p.giveItemStack(new ItemStack(Items.ARROW, 64));
         }
     }
-    private static void clearOreMarkers() {
-        for (ArmorStandEntity marker : oreMarkers.values()) marker.discard();
-        oreMarkers.clear();
-    }
     private static boolean hasCharge(ServerPlayerEntity p) {
         for (int i = 0; i < p.getInventory().size(); i++)
             if (p.getInventory().getStack(i).isOf(Items.FIRE_CHARGE)) return true;
@@ -241,44 +248,11 @@ public class HackerManhunt implements ModInitializer {
         boostedTnt.add(tnt); // 4.8 = 20% above vanilla TNT power 4.0
         blastCooldown = 50;
     }
-    private static void scan(ServerPlayerEntity h) {
-        for (ServerPlayerEntity p : h.getServer().getPlayerManager().getPlayerList())
-            if (p != h && p.getWorld() == h.getWorld() && p.squaredDistanceTo(h) < 4096)
-                p.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 120, 0, false, false));
-        h.getWorld().getEntitiesByClass(net.minecraft.entity.mob.MobEntity.class, h.getBoundingBox().expand(24), e -> true)
-            .forEach(e -> e.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 120, 0, false, false)));
-        BlockPos center = h.getBlockPos();
-        Map<BlockPos, String> found = new HashMap<>();
-        // Limit the scan to reduce lag and entity spam.
-        for (BlockPos pos : BlockPos.iterate(center.add(-10,-8,-10), center.add(10,8,10))) {
-            var block = h.getWorld().getBlockState(pos).getBlock();
-            String ore = null;
-            if (block == Blocks.DIAMOND_ORE || block == Blocks.DEEPSLATE_DIAMOND_ORE) ore = "Diamond";
-            else if (block == Blocks.IRON_ORE || block == Blocks.DEEPSLATE_IRON_ORE) ore = "Iron";
-            else if (block == Blocks.COAL_ORE || block == Blocks.DEEPSLATE_COAL_ORE) ore = "Coal";
-            else if (block == Blocks.EMERALD_ORE || block == Blocks.DEEPSLATE_EMERALD_ORE) ore = "Emerald";
-            else if (block == Blocks.GOLD_ORE || block == Blocks.DEEPSLATE_GOLD_ORE) ore = "Gold";
-            else if (block == Blocks.REDSTONE_ORE || block == Blocks.DEEPSLATE_REDSTONE_ORE) ore = "Redstone";
-            else if (block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE) ore = "Lapis";
-            if (ore != null && found.size() < 80) found.put(pos.toImmutable(), ore);
-        }
-        oreMarkers.entrySet().removeIf(e -> {
-            if (found.containsKey(e.getKey()) && e.getValue().isAlive()) return false;
-            e.getValue().discard();
-            return true;
-        });
-        for (var e : found.entrySet()) {
-            if (oreMarkers.containsKey(e.getKey())) continue;
-            ArmorStandEntity marker = new ArmorStandEntity(EntityType.ARMOR_STAND, h.getWorld());
-            marker.refreshPositionAndAngles(e.getKey().getX() + .5, e.getKey().getY() + .5, e.getKey().getZ() + .5, 0, 0);
-            marker.setInvisible(true);
-            marker.setInvulnerable(true);
-            marker.setNoGravity(true);
-            marker.setGlowing(true);
-            marker.setCustomName(Text.literal(e.getValue() + " ore"));
-            marker.setCustomNameVisible(true);
-            h.getWorld().spawnEntity(marker);
-            oreMarkers.put(e.getKey(), marker);
-        }
+    public record XrayPayload(boolean enabled) implements CustomPayload {
+        public static final CustomPayload.Id<XrayPayload> ID =
+            new CustomPayload.Id<>(Identifier.of("hackermanhunt", "xray_state"));
+        public static final PacketCodec<RegistryByteBuf, XrayPayload> CODEC =
+            PacketCodec.tuple(PacketCodecs.BOOL, XrayPayload::enabled, XrayPayload::new);
+        @Override public CustomPayload.Id<? extends CustomPayload> getId() { return ID; }
     }
 }
