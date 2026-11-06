@@ -14,9 +14,12 @@ public abstract class EntityOutlineMixin {
     @Inject(method = "isGlowing", at = @At("HEAD"), cancellable = true)
     private void hackermanhunt$localOutlines(CallbackInfoReturnable<Boolean> cir) {
         Entity e = (Entity)(Object)this;
-        if (ManhuntClient.hasXray() && e instanceof LivingEntity
-            && e != MinecraftClient.getInstance().player) {
+        if (!(e instanceof LivingEntity) || e == MinecraftClient.getInstance().player) return;
+        if (ManhuntClient.hasXray()) {
             cir.setReturnValue(true);
+        } else if (ManhuntClient.isHunterView()) {
+            // Hunters see normal mobs and players, never the mod's old white glow outlines.
+            cir.setReturnValue(false);
         }
     }
 }
