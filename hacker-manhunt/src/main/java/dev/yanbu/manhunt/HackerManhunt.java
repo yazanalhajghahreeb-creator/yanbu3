@@ -52,6 +52,7 @@ public class HackerManhunt implements ModInitializer {
     private static int intervalSeconds = 300;
     private static int scanCooldown = 0;
     private static int blastCooldown = 0;
+    // NOTE: markers are world entities and currently visible to all players, not just hacker.
     private static final Map<BlockPos, ArmorStandEntity> oreMarkers = new HashMap<>();
     private static final Identifier RAPID_ATTACK = Identifier.of("hackermanhunt", "rapid_attack");
     private static final List<TntEntity> boostedTnt = new ArrayList<>();
@@ -85,7 +86,7 @@ public class HackerManhunt implements ModInitializer {
                         ServerPlayerEntity old = c.getSource().getServer().getPlayerManager().getPlayer(hacker);
                         if (old != null) { old.getAbilities().allowFlying = false; old.getAbilities().flying = false; old.sendAbilitiesUpdate(); }
                     }
-                    ServerPlayerEntity current = c.getSource().getServer().getPlayerManager().getPlayer(hacker);
+                    ServerPlayerEntity current = hacker == null ? null : c.getSource().getServer().getPlayerManager().getPlayer(hacker);
                     if (current != null && current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED) != null)
                         current.getAttributeInstance(EntityAttributes.GENERIC_ATTACK_SPEED).removeModifier(RAPID_ATTACK);
                     clearOreMarkers();
@@ -176,7 +177,7 @@ public class HackerManhunt implements ModInitializer {
                 if (!stack.isOf(Items.COMPASS)) continue;
                 var tracker = stack.get(DataComponentTypes.LODESTONE_TRACKER);
                 if (tracker == null || tracker.target().isEmpty()
-                    || tracker.target().get().pos().getSquaredDistance(h.getBlockPos()) >= 4) {
+                    || tracker.target().get().pos().getSquaredDistance(h.getBlockPos()) >= 4.0) {
                     stack.set(DataComponentTypes.LODESTONE_TRACKER,
                         new LodestoneTrackerComponent(Optional.of(target), false));
                 }
