@@ -46,3 +46,10 @@ Install JDK 21 and Gradle 8.12, then from this folder run `gradle build`. Check 
 - Full multiplayer testing and a successful GitHub Actions build are still required. Previous JAR files do NOT include these changes.
 
 Known limitations: X-ray visually removes ordinary block models on the hacker client while active, which may have visual/performance side effects. It needs in-game testing alongside resource packs/shaders. Ores render with original textures. No claims of tested compatibility.
+
+
+## Hacker Yanbu 0.2.0
+- Mod display name: Hacker Yanbu. Artifact filename: hacker-yanbu-0.2.0.jar.
+- Added ore-type colors to the local through-wall outline rendering (diamond cyan, iron orange, gold yellow, redstone red, emerald green, lapis blue, coal light grey).
+- This remains client-side and role-gated to the hacker; hunters should have no mod X-ray. Compass implementation was not modified in this revision.
+- Not yet validated with a fresh GitHub Actions build or multiplayer test. If build fails, inspect Actions logs before installation.
