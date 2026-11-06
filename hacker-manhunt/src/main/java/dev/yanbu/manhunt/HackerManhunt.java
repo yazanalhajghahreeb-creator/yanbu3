@@ -156,7 +156,8 @@ public class HackerManhunt implements ModInitializer {
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                     if (ServerPlayNetworking.canSend(player, XrayPayload.ID)) {
                         ServerPlayNetworking.send(player, new XrayPayload(
-                            active && stage >= 1 && player.getUuid().equals(hacker)));
+                            active && stage >= 1 && player.getUuid().equals(hacker),
+                            hacker == null ? "" : hacker.toString()));
                     }
                 }
             }
@@ -248,11 +249,12 @@ public class HackerManhunt implements ModInitializer {
         boostedTnt.add(tnt); // 4.8 = 20% above vanilla TNT power 4.0
         blastCooldown = 50;
     }
-    public record XrayPayload(boolean enabled) implements CustomPayload {
+    public record XrayPayload(boolean enabled, String authorizedHacker) implements CustomPayload {
         public static final CustomPayload.Id<XrayPayload> ID =
             new CustomPayload.Id<>(Identifier.of("hackermanhunt", "xray_state"));
         public static final PacketCodec<RegistryByteBuf, XrayPayload> CODEC =
-            PacketCodec.tuple(PacketCodecs.BOOL, XrayPayload::enabled, XrayPayload::new);
+            PacketCodec.tuple(PacketCodecs.BOOL, XrayPayload::enabled,
+                PacketCodecs.STRING, XrayPayload::authorizedHacker, XrayPayload::new);
         @Override public CustomPayload.Id<? extends CustomPayload> getId() { return ID; }
     }
 }
