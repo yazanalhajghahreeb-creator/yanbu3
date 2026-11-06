@@ -31,3 +31,18 @@ Install JDK 21 and Gradle 8.12, then from this folder run `gradle build`. Check 
 - Tracking compasses are already updated before the first kill. Their target now moves in increments of two blocks to reduce needle jitter; this cannot guarantee an absolutely stationary needle when the player moves. A dedicated client-side compass renderer is needed for smooth/precise tracking.
 - Nearby ores now receive glowing invisible armor-stand markers with labels (diamond, iron, coal, emerald, gold, redstone, lapis). **Known limitation:** these entities are currently visible to everyone in the same world, not only the hacker. The feature is experimental and not the intended hacker-only X-ray.
 - The new changes have NOT been validated by a successful build or multiplayer playtest. Do not treat the previous JAR as updated.
+
+
+## 2026-11-06 client-only X-ray / compass update (source revision; not yet playtested)
+
+**Install this mod on the server and on each of the four clients.** Minecraft Java Fabric 1.21.1 + Fabric API is required.
+
+- Hunters' vanilla-world view stays normal: server-side global glow and world-spawned ore armor stands were removed.
+- Only the designated hacker receives X-ray enablement through a server-to-client packet after Stage 1 is unlocked (5 minutes after hacker's first hunter kill).
+- Hacker-side X-ray renderer hides normal solid block models, renders ore models without face culling, and adds local glowing outlines to living entities. It is an experimental fullscreen ore visualization rather than world-visible markers.
+- After the hacker loses X-ray, the client reloads chunk rendering.
+- The client-side compass hand patch prevents the frequent lower/raise re-equip animation when compass tracking data changes. Direction tracking starts before the first kill and follows the hacker's position.
+- The rapid-attack ability is automatically given **only to the hacker** from Stage 3; hunters retain normal combat speed.
+- Full multiplayer testing and a successful GitHub Actions build are still required. Previous JAR files do NOT include these changes.
+
+Known limitations: X-ray visually removes ordinary block models on the hacker client while active, which may have visual/performance side effects. It needs in-game testing alongside resource packs/shaders. Ores render with original textures. No claims of tested compatibility.
