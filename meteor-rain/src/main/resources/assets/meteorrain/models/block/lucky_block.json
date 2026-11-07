@@ -1,1 +1,1 @@
-{"parent":"minecraft:block/cube_all","textures":{"all":"minecraft:block/yellow_glazed_terracotta"}}
+{"parent":"minecraft:block/cube_all","textures":{"all":"meteorrain:block/lucky_block"}}
