@@ -12,6 +12,9 @@ import net.minecraft.block.FallingBlock;
 import net.minecraft.block.MapColor;
 import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.TntEntity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
@@ -48,6 +51,7 @@ public class MeteorRain implements ModInitializer {
     private static long ticks = 0;
     private static int lastInterval = 60;
     private static final int TNT_COUNT = 120;
+    private static final int TARGETED_TNT_COUNT = 10;
     private static final int LUCKY_COUNT = 72;
     private static final int TNT_RADIUS = 100;
     private static final int LUCKY_RADIUS = 20;
@@ -108,7 +112,7 @@ public class MeteorRain implements ModInitializer {
         ServerWorld world = player.getServerWorld();
         Random random = world.getRandom();
         for (int i = 0; i < TNT_COUNT; i++) {
-            Vec3d offset = randomCircle(random, TNT_RADIUS);
+            Vec3d offset = randomCircle(random, i < TARGETED_TNT_COUNT ? 3 : TNT_RADIUS);
             double x = player.getX() + offset.x;
             double z = player.getZ() + offset.z;
             double y = Math.min(world.getTopY() - 5, player.getY() + 35 + random.nextInt(22));
@@ -156,24 +160,57 @@ public class MeteorRain implements ModInitializer {
             world.breakBlock(pos, false);
             return ActionResult.SUCCESS;
         }
+        @Override
+        public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+            if (!world.isClient && world instanceof ServerWorld serverWorld) {
+                reward(serverWorld, pos, player);
+            }
+            return super.onBreak(world, pos, state, player);
+        }
+
         private static void reward(ServerWorld world, BlockPos pos, PlayerEntity player) {
             Random random = world.getRandom();
-            int roll = random.nextInt(12);
-            switch (roll) {
-                case 0 -> player.giveItemStack(new ItemStack(Items.DIAMOND, 2 + random.nextInt(5)));
-                case 1 -> player.giveItemStack(new ItemStack(Items.GOLDEN_APPLE, 1 + random.nextInt(3)));
-                case 2 -> player.giveItemStack(new ItemStack(Items.ENDER_PEARL, 2 + random.nextInt(5)));
-                case 3 -> player.giveItemStack(new ItemStack(Items.IRON_INGOT, 8 + random.nextInt(9)));
-                case 4 -> player.giveItemStack(new ItemStack(Items.TOTEM_OF_UNDYING));
-                case 5 -> player.giveItemStack(new ItemStack(Items.NETHERITE_SCRAP));
-                case 6 -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 20 * 20, 1));
-                case 7 -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 20 * 20, 1));
-                case 8 -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, 20 * 25, 1));
-                case 9 -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 20 * 10, 1));
-                case 10 -> player.giveItemStack(new ItemStack(Items.BREAD, 12));
-                case 11 -> { TntEntity tnt = new TntEntity(world, pos.getX() + .5, pos.getY() + 1, pos.getZ() + .5, player); tnt.setFuse(70); world.spawnEntity(tnt); }
+            int roll = random.nextInt(100);
+            if (roll < 70) {
+                // 70% of blocks give a helpful resource drop on the ground.
+                ItemStack prize = switch (random.nextInt(12)) {
+                    case 0 -> new ItemStack(Items.DIAMOND, 3 + random.nextInt(6));
+                    case 1 -> new ItemStack(Items.NETHERITE_SCRAP, 1 + random.nextInt(2));
+                    case 2 -> new ItemStack(Items.GOLDEN_APPLE, 2 + random.nextInt(3));
+                    case 3 -> new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1);
+                    case 4 -> new ItemStack(Items.ENDER_PEARL, 5 + random.nextInt(6));
+                    case 5 -> new ItemStack(Items.TOTEM_OF_UNDYING, 1);
+                    case 6 -> new ItemStack(Items.IRON_INGOT, 16 + random.nextInt(17));
+                    case 7 -> new ItemStack(Items.OBSIDIAN, 8 + random.nextInt(9));
+                    case 8 -> new ItemStack(Items.BLAZE_ROD, 3 + random.nextInt(5));
+                    case 9 -> new ItemStack(Items.COOKED_BEEF, 12 + random.nextInt(13));
+                    case 10 -> new ItemStack(Items.DIAMOND_CHESTPLATE, 1);
+                    default -> new ItemStack(Items.SHIELD, 1);
+                };
+                Block.dropStack(world, pos, prize);
+                player.sendMessage(Text.literal("§aLucky! You got " + prize.getCount() + " x " + prize.getName().getString()), true);
+            } else {
+                // 30% of blocks summon strong hostile mobs; no Wither, no traps.
+                EntityType<?> mob = switch (random.nextInt(6)) {
+                    case 0 -> EntityType.ZOMBIE;
+                    case 1 -> EntityType.SKELETON;
+                    case 2 -> EntityType.CREEPER;
+                    case 3 -> EntityType.ENDERMAN;
+                    case 4 -> EntityType.PILLAGER;
+                    default -> EntityType.RAVAGER;
+                };
+                int count = mob == EntityType.RAVAGER ? 1 : 2 + random.nextInt(2);
+                for (int i = 0; i < count; i++) {
+                    var entity = mob.create(world, SpawnReason.TRIGGERED);
+                    if (entity != null) {
+                        double x = pos.getX() + .5 + (random.nextDouble() - .5) * 5;
+                        double z = pos.getZ() + .5 + (random.nextDouble() - .5) * 5;
+                        entity.refreshPositionAndAngles(x, pos.getY() + 1, z, random.nextFloat() * 360, 0);
+                        world.spawnEntity(entity);
+                    }
+                }
+                player.sendMessage(Text.literal("§cUNLUCKY! Hostile mobs incoming!"), true);
             }
-            player.sendMessage(Text.literal(roll == 9 || roll == 11 ? "§cUnlucky!" : "§aLucky block opened!"), true);
         }
     }
 }
