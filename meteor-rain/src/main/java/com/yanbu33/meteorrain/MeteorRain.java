@@ -201,7 +201,7 @@ public class MeteorRain implements ModInitializer {
                 };
                 int count = mob == EntityType.RAVAGER ? 1 : 2 + random.nextInt(2);
                 for (int i = 0; i < count; i++) {
-                    var entity = mob.create(world, SpawnReason.TRIGGERED);
+                    var entity = mob.create(world);
                     if (entity != null) {
                         double x = pos.getX() + .5 + (random.nextDouble() - .5) * 5;
                         double z = pos.getZ() + .5 + (random.nextDouble() - .5) * 5;
