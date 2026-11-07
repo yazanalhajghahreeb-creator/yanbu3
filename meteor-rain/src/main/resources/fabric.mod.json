@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"meteorrain","version":"${version}","name":"Yanbu33 Meteor Rain","description":"TNT and Lucky Block meteor showers around players","environment":"*","entrypoints":{"main":["com.yanbu33.meteorrain.MeteorRain"]},"depends":{"fabricloader":">=0.16.9","minecraft":"~1.21.1","java":">=21","fabric-api":"*"}}
