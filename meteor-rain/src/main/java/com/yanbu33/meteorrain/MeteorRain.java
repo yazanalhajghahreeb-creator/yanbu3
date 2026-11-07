@@ -14,6 +14,8 @@ import net.minecraft.entity.FallingBlockEntity;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -51,7 +53,7 @@ public class MeteorRain implements ModInitializer {
     private static long ticks = 0;
     private static int lastInterval = 60;
     private static final int TNT_COUNT = 120;
-    private static final int TARGETED_TNT_COUNT = 10;
+    private static final int TARGETED_TNT_COUNT = 25;
     private static final int LUCKY_COUNT = 72;
     private static final int TNT_RADIUS = 100;
     private static final int LUCKY_RADIUS = 20;
@@ -112,7 +114,14 @@ public class MeteorRain implements ModInitializer {
         ServerWorld world = player.getServerWorld();
         Random random = world.getRandom();
         for (int i = 0; i < TNT_COUNT; i++) {
-            Vec3d offset = randomCircle(random, i < TARGETED_TNT_COUNT ? 3 : TNT_RADIUS);
+            Vec3d offset;
+            if (i < TARGETED_TNT_COUNT) {
+                double angle = (Math.PI * 2 * i / TARGETED_TNT_COUNT) + random.nextDouble() * .06;
+                double ringRadius = 8 + random.nextDouble() * 4;
+                offset = new Vec3d(Math.cos(angle) * ringRadius, 0, Math.sin(angle) * ringRadius);
+            } else {
+                offset = randomCircle(random, TNT_RADIUS);
+            }
             double x = player.getX() + offset.x;
             double z = player.getZ() + offset.z;
             double y = Math.min(world.getTopY() - 5, player.getY() + 35 + random.nextInt(22));
@@ -173,40 +182,66 @@ public class MeteorRain implements ModInitializer {
             int roll = random.nextInt(100);
             if (roll < 70) {
                 // 70% of blocks give a helpful resource drop on the ground.
-                ItemStack prize = switch (random.nextInt(12)) {
-                    case 0 -> new ItemStack(Items.DIAMOND, 3 + random.nextInt(6));
-                    case 1 -> new ItemStack(Items.NETHERITE_SCRAP, 1 + random.nextInt(2));
-                    case 2 -> new ItemStack(Items.GOLDEN_APPLE, 2 + random.nextInt(3));
+                ItemStack prize = switch (random.nextInt(28)) {
+                    case 0 -> new ItemStack(Items.DIAMOND, 1 + random.nextInt(4));
+                    case 1 -> new ItemStack(Items.NETHERITE_SCRAP, 1);
+                    case 2 -> new ItemStack(Items.GOLDEN_APPLE, 1 + random.nextInt(2));
                     case 3 -> new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1);
-                    case 4 -> new ItemStack(Items.ENDER_PEARL, 5 + random.nextInt(6));
+                    case 4 -> new ItemStack(Items.ENDER_PEARL, 2 + random.nextInt(5));
                     case 5 -> new ItemStack(Items.TOTEM_OF_UNDYING, 1);
-                    case 6 -> new ItemStack(Items.IRON_INGOT, 16 + random.nextInt(17));
-                    case 7 -> new ItemStack(Items.OBSIDIAN, 8 + random.nextInt(9));
-                    case 8 -> new ItemStack(Items.BLAZE_ROD, 3 + random.nextInt(5));
-                    case 9 -> new ItemStack(Items.COOKED_BEEF, 12 + random.nextInt(13));
+                    case 6 -> new ItemStack(Items.IRON_INGOT, 5 + random.nextInt(12));
+                    case 7 -> new ItemStack(Items.OBSIDIAN, 4 + random.nextInt(9));
+                    case 8 -> new ItemStack(Items.BLAZE_ROD, 2 + random.nextInt(4));
+                    case 9 -> new ItemStack(Items.COOKED_BEEF, 6 + random.nextInt(9));
                     case 10 -> new ItemStack(Items.DIAMOND_CHESTPLATE, 1);
-                    default -> new ItemStack(Items.SHIELD, 1);
+                    case 11 -> new ItemStack(Items.SHIELD, 1);
+                    case 12 -> new ItemStack(Items.GOLD_INGOT, 8 + random.nextInt(9));
+                    case 13 -> new ItemStack(Items.EMERALD, 3 + random.nextInt(8));
+                    case 14 -> new ItemStack(Items.LAPIS_LAZULI, 8 + random.nextInt(17));
+                    case 15 -> new ItemStack(Items.REDSTONE, 8 + random.nextInt(17));
+                    case 16 -> new ItemStack(Items.ARROW, 12 + random.nextInt(21));
+                    case 17 -> new ItemStack(Items.BOW, 1);
+                    case 18 -> new ItemStack(Items.IRON_PICKAXE, 1);
+                    case 19 -> new ItemStack(Items.DIAMOND_SWORD, 1);
+                    case 20 -> new ItemStack(Items.DIAMOND_PICKAXE, 1);
+                    case 21 -> new ItemStack(Items.NETHERITE_INGOT, 1);
+                    case 22 -> new ItemStack(Items.EXPERIENCE_BOTTLE, 5 + random.nextInt(12));
+                    case 23 -> new ItemStack(Items.GOLDEN_CARROT, 6 + random.nextInt(9));
+                    case 24 -> new ItemStack(Items.WATER_BUCKET, 1);
+                    case 25 -> new ItemStack(Items.ENDER_EYE, 1 + random.nextInt(3));
+                    case 26 -> new ItemStack(Items.ANCIENT_DEBRIS, 1);
+                    default -> new ItemStack(Items.DIAMOND_BOOTS, 1);
                 };
                 Block.dropStack(world, pos, prize);
                 player.sendMessage(Text.literal("§aLucky! You got " + prize.getCount() + " x " + prize.getName().getString()), true);
             } else {
                 // 30% of blocks summon strong hostile mobs; no Wither, no traps.
-                EntityType<?> mob = switch (random.nextInt(6)) {
+                EntityType<?> mob = switch (random.nextInt(12)) {
                     case 0 -> EntityType.ZOMBIE;
                     case 1 -> EntityType.SKELETON;
                     case 2 -> EntityType.CREEPER;
                     case 3 -> EntityType.ENDERMAN;
-                    case 4 -> EntityType.PILLAGER;
-                    default -> EntityType.RAVAGER;
+                    case 4 -> EntityType.WITHER_SKELETON;
+                    case 5 -> EntityType.GHAST;
+                    case 6 -> EntityType.PILLAGER;
+                    case 7 -> EntityType.VINDICATOR;
+                    case 8 -> EntityType.RAVAGER;
+                    case 9 -> EntityType.SPIDER;
+                    case 10 -> EntityType.BLAZE;
+                    default -> EntityType.HUSK;
                 };
-                int count = mob == EntityType.RAVAGER ? 1 : 2 + random.nextInt(2);
+                int count = mob == EntityType.GHAST || mob == EntityType.RAVAGER ? 1 : 1 + random.nextInt(3);
                 for (int i = 0; i < count; i++) {
                     var entity = mob.create(world);
                     if (entity != null) {
-                        double x = pos.getX() + .5 + (random.nextDouble() - .5) * 5;
-                        double z = pos.getZ() + .5 + (random.nextDouble() - .5) * 5;
-                        entity.refreshPositionAndAngles(x, pos.getY() + 1, z, random.nextFloat() * 360, 0);
+                        double x = pos.getX() + .5 + (random.nextDouble() - .5) * 7;
+                        double z = pos.getZ() + .5 + (random.nextDouble() - .5) * 7;
+                        double y = pos.getY() + (mob == EntityType.GHAST ? 8 : 1);
+                        entity.refreshPositionAndAngles(x, y, z, random.nextFloat() * 360, 0);
                         world.spawnEntity(entity);
+                        if (entity instanceof MobEntity hostile) {
+                            hostile.setTarget(player);
+                        }
                     }
                 }
                 player.sendMessage(Text.literal("§cUNLUCKY! Hostile mobs incoming!"), true);
