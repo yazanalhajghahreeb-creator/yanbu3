@@ -52,7 +52,7 @@ public class MeteorRain implements ModInitializer {
     private static boolean active = true;
     private static long ticks = 0;
     private static int lastInterval = 60;
-    private static final int TNT_COUNT = 120;
+    private static final int TNT_COUNT = 250;
     private static final int TARGETED_TNT_COUNT = 25;
     private static final int LUCKY_COUNT = 72;
     private static final int TNT_RADIUS = 100;
