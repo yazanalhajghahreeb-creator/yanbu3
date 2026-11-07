@@ -1,6 +1,7 @@
 package com.yanbu33.meteorrain;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.serialization.MapCodec;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -142,7 +143,10 @@ public class MeteorRain implements ModInitializer {
     }
 
     public static class LuckyMeteorBlock extends FallingBlock {
+        public static final MapCodec<LuckyMeteorBlock> CODEC = createCodec(LuckyMeteorBlock::new);
         public LuckyMeteorBlock(Settings settings) { super(settings); }
+        @Override
+        protected MapCodec<? extends FallingBlock> getCodec() { return CODEC; }
         @Override
         public int getColor(BlockState state, net.minecraft.world.BlockView world, BlockPos pos) { return 0xFFE600; }
         @Override
