@@ -17,11 +17,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build Fabric mod
+      - name: Confirm Java source exists
+        run: test -f meteor-rain/src/main/java/com/yanbu33/meteorrain/MeteorRain.java
+      - name: Compile and package Fabric mod
         working-directory: meteor-rain
-        run: gradle build --no-daemon
+        run: gradle clean build --no-daemon
+      - name: Verify entrypoint is actually inside JAR
+        run: |
+          jar tf meteor-rain/build/libs/meteor-rain-1.0.1.jar | grep -Fx 'com/yanbu33/meteorrain/MeteorRain.class'
+          unzip -p meteor-rain/build/libs/meteor-rain-1.0.1.jar fabric.mod.json | grep -F 'com.yanbu33.meteorrain.MeteorRain'
       - uses: actions/upload-artifact@v4
         with:
-          name: meteor-rain-jar
-          path: meteor-rain/build/libs/meteor-rain-1.0.0.jar
+          name: meteor-rain-fixed-1.0.1
+          path: meteor-rain/build/libs/meteor-rain-1.0.1.jar
           if-no-files-found: error
