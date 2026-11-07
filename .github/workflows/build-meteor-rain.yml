@@ -24,10 +24,10 @@ jobs:
         run: gradle clean build --no-daemon
       - name: Verify entrypoint is actually inside JAR
         run: |
-          jar tf meteor-rain/build/libs/meteor-rain-1.0.2.jar | grep -Fx 'com/yanbu33/meteorrain/MeteorRain.class'
-          unzip -p meteor-rain/build/libs/meteor-rain-1.0.2.jar fabric.mod.json | grep -F 'com.yanbu33.meteorrain.MeteorRain'
+          jar tf meteor-rain/build/libs/meteor-rain-1.0.3.jar | grep -Fx 'com/yanbu33/meteorrain/MeteorRain.class'
+          unzip -p meteor-rain/build/libs/meteor-rain-1.0.3.jar fabric.mod.json | grep -F 'com.yanbu33.meteorrain.MeteorRain'
       - uses: actions/upload-artifact@v4
         with:
-          name: meteor-rain-fixed-1.0.2
-          path: meteor-rain/build/libs/meteor-rain-1.0.2.jar
+          name: meteor-rain-fixed-1.0.3
+          path: meteor-rain/build/libs/meteor-rain-1.0.3.jar
           if-no-files-found: error
