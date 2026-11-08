@@ -2,6 +2,12 @@ package com.yanbu33.meteorrain;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.serialization.MapCodec;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.Enchantments;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.RegistryKey;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -177,21 +183,85 @@ public class MeteorRain implements ModInitializer {
             return super.onBreak(world, pos, state, player);
         }
 
+        private static void enchant(ServerWorld world, ItemStack stack, RegistryKey<Enchantment> key, int level) {
+            stack.addEnchantment(world.getRegistryManager().get(RegistryKeys.ENCHANTMENT).getEntry(key).orElseThrow(), level);
+        }
+
+        private static ItemStack rareEnchantedPrize(ServerWorld world, Random random) {
+            ItemStack item;
+            int choice = random.nextInt(7);
+            switch (choice) {
+                case 0 -> {
+                    item = new ItemStack(Items.BOW);
+                    enchant(world, item, Enchantments.POWER, 5);
+                    enchant(world, item, Enchantments.INFINITY, 1);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                }
+                case 1 -> {
+                    item = new ItemStack(Items.NETHERITE_SWORD);
+                    enchant(world, item, Enchantments.SHARPNESS, 5);
+                    enchant(world, item, Enchantments.LOOTING, 3);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                }
+                case 2 -> {
+                    item = new ItemStack(Items.NETHERITE_CHESTPLATE);
+                    enchant(world, item, Enchantments.PROTECTION, 4);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                    enchant(world, item, Enchantments.MENDING, 1);
+                }
+                case 3 -> {
+                    item = new ItemStack(Items.NETHERITE_HELMET);
+                    enchant(world, item, Enchantments.PROTECTION, 4);
+                    enchant(world, item, Enchantments.RESPIRATION, 3);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                }
+                case 4 -> {
+                    item = new ItemStack(Items.NETHERITE_LEGGINGS);
+                    enchant(world, item, Enchantments.PROTECTION, 4);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                    enchant(world, item, Enchantments.MENDING, 1);
+                }
+                case 5 -> {
+                    item = new ItemStack(Items.NETHERITE_BOOTS);
+                    enchant(world, item, Enchantments.PROTECTION, 4);
+                    enchant(world, item, Enchantments.FEATHER_FALLING, 4);
+                    enchant(world, item, Enchantments.UNBREAKING, 3);
+                }
+                default -> {
+                    item = new ItemStack(Items.ENCHANTED_BOOK);
+                    ItemEnchantmentsComponent.Builder builder = new ItemEnchantmentsComponent.Builder(
+                        item.getOrDefault(DataComponentTypes.STORED_ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT));
+                    builder.set(world.getRegistryManager().get(RegistryKeys.ENCHANTMENT).getEntry(Enchantments.PROTECTION).orElseThrow(), 4);
+                    builder.set(world.getRegistryManager().get(RegistryKeys.ENCHANTMENT).getEntry(Enchantments.UNBREAKING).orElseThrow(), 3);
+                    item.set(DataComponentTypes.STORED_ENCHANTMENTS, builder.build());
+                }
+            }
+            return item;
+        }
+
         private static void reward(ServerWorld world, BlockPos pos, PlayerEntity player) {
             Random random = world.getRandom();
-            int roll = random.nextInt(100);
-            if (roll < 70) {
+            int roll = random.nextInt(10000);
+            if (roll < 7000) {
                 // 70% of blocks give a helpful resource drop on the ground.
-                ItemStack prize = switch (random.nextInt(28)) {
+                ItemStack prize;
+                // 1% of all lucky blocks: enchanted gear or a powerful book.
+                // 1% of all lucky blocks: blaze rods.
+                if (roll < 100) {
+                    prize = rareEnchantedPrize(world, random);
+                } else if (roll < 200) {
+                    prize = new ItemStack(Items.BLAZE_ROD, 2 + random.nextInt(3));
+                } else {
+                    prize = switch (random.nextInt(28)) {
                     case 0 -> new ItemStack(Items.DIAMOND, 1 + random.nextInt(4));
                     case 1 -> new ItemStack(Items.NETHERITE_SCRAP, 1);
                     case 2 -> new ItemStack(Items.GOLDEN_APPLE, 1 + random.nextInt(2));
                     case 3 -> new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1);
-                    case 4 -> new ItemStack(Items.ENDER_PEARL, 2 + random.nextInt(5));
+                    case 4 -> new ItemStack(Items.LEATHER, 4 + random.nextInt(9));
                     case 5 -> new ItemStack(Items.TOTEM_OF_UNDYING, 1);
                     case 6 -> new ItemStack(Items.IRON_INGOT, 5 + random.nextInt(12));
                     case 7 -> new ItemStack(Items.OBSIDIAN, 4 + random.nextInt(9));
-                    case 8 -> new ItemStack(Items.BLAZE_ROD, 2 + random.nextInt(4));
+                    case 8 -> new ItemStack(Items.COAL, 8 + random.nextInt(12));
                     case 9 -> new ItemStack(Items.COOKED_BEEF, 6 + random.nextInt(9));
                     case 10 -> new ItemStack(Items.DIAMOND_CHESTPLATE, 1);
                     case 11 -> new ItemStack(Items.SHIELD, 1);
@@ -208,10 +278,11 @@ public class MeteorRain implements ModInitializer {
                     case 22 -> new ItemStack(Items.EXPERIENCE_BOTTLE, 5 + random.nextInt(12));
                     case 23 -> new ItemStack(Items.GOLDEN_CARROT, 6 + random.nextInt(9));
                     case 24 -> new ItemStack(Items.WATER_BUCKET, 1);
-                    case 25 -> new ItemStack(Items.ENDER_EYE, 1 + random.nextInt(3));
+                    case 25 -> new ItemStack(Items.STRING, 6 + random.nextInt(8));
                     case 26 -> new ItemStack(Items.ANCIENT_DEBRIS, 1);
                     default -> new ItemStack(Items.DIAMOND_BOOTS, 1);
                 };
+                }
                 Block.dropStack(world, pos, prize);
                 player.sendMessage(Text.literal("§aLucky! You got " + prize.getCount() + " x " + prize.getName().getString()), true);
             } else {
