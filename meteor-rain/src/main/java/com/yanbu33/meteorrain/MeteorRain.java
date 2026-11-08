@@ -54,10 +54,12 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class MeteorRain implements ModInitializer {
     public static final String ID = "meteorrain";
     public static Block LUCKY_BLOCK;
-    private static final Map<UUID, Integer> CLOCKS = new HashMap<>();
+    private static final Map<UUID, Integer> TNT_CLOCKS = new HashMap<>();
+    private static final Map<UUID, Integer> LUCKY_CLOCKS = new HashMap<>();
+    private static final int TNT_INTERVAL_TICKS = 30 * 20;
+    private static final int LUCKY_INTERVAL_TICKS = 20 * 20;
     private static boolean active = true;
     private static long ticks = 0;
-    private static int lastInterval = 60;
     private static final int TNT_COUNT = 250;
     private static final int TARGETED_TNT_COUNT = 25;
     private static final int LUCKY_COUNT = 72;
@@ -75,45 +77,43 @@ public class MeteorRain implements ModInitializer {
 
     private void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(literal("meteors").requires(source -> source.hasPermissionLevel(2))
-            .then(literal("start").executes(ctx -> { active = true; CLOCKS.clear(); ticks = 0;
+            .then(literal("start").executes(ctx -> { active = true; TNT_CLOCKS.clear(); LUCKY_CLOCKS.clear(); ticks = 0;
                 ctx.getSource().sendFeedback(() -> Text.literal("Meteor rain started!"), true); return 1; }))
             .then(literal("stop").executes(ctx -> { active = false;
                 ctx.getSource().sendFeedback(() -> Text.literal("Meteor rain stopped!"), true); return 1; }))
-            .then(literal("reset").executes(ctx -> { CLOCKS.clear(); ticks = 0;
+            .then(literal("reset").executes(ctx -> { TNT_CLOCKS.clear(); LUCKY_CLOCKS.clear(); ticks = 0;
                 ctx.getSource().sendFeedback(() -> Text.literal("Meteor timers reset."), true); return 1; }))
-            .then(literal("status").executes(ctx -> { int interval = intervalSeconds();
-                ctx.getSource().sendFeedback(() -> Text.literal("Meteors: " + (active ? "ON" : "OFF") + ", interval: " + interval + "s, TNT: " + TNT_COUNT + ", Lucky: " + LUCKY_COUNT), false); return 1; })));
-    }
-
-    private static int intervalSeconds() {
-        return Math.max(30, 60 - (int) (ticks / (5L * 60 * 20)) * 10);
+            .then(literal("status").executes(ctx -> {
+                ctx.getSource().sendFeedback(() -> Text.literal("Meteors: " + (active ? "ON" : "OFF") + ", TNT every 30s (" + TNT_COUNT + "), Lucky every 20s (" + LUCKY_COUNT + ")"), false); return 1; })));
     }
 
     private void tick(MinecraftServer server) {
         if (!active) return;
         ticks++;
-        int interval = intervalSeconds();
-        if (interval != lastInterval) {
-            lastInterval = interval;
-            server.getPlayerManager().broadcast(Text.literal("☄ Meteor interval is now " + interval + " seconds!"), false);
-            CLOCKS.replaceAll((uuid, current) -> Math.min(current, interval * 20));
-        }
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             if (player.isSpectator() || !player.isAlive()) continue;
-            int remaining = CLOCKS.getOrDefault(player.getUuid(), interval * 20);
-            remaining--;
-            if (remaining == 10 * 20) {
+            UUID uuid = player.getUuid();
+
+            int luckyRemaining = LUCKY_CLOCKS.getOrDefault(uuid, LUCKY_INTERVAL_TICKS) - 1;
+            if (luckyRemaining <= 0) {
                 spawnLuckyShower(player);
-                player.sendMessage(Text.literal("§e☘ Lucky meteor rain! §cTNT in 10 seconds!"), true);
+                player.sendMessage(Text.literal("§e☘ LUCKY METEOR RAIN!"), true);
+                luckyRemaining = LUCKY_INTERVAL_TICKS;
             }
-            if (remaining <= 0) {
+            LUCKY_CLOCKS.put(uuid, luckyRemaining);
+
+            int tntRemaining = TNT_CLOCKS.getOrDefault(uuid, TNT_INTERVAL_TICKS) - 1;
+            if (tntRemaining <= 0) {
                 spawnTntShower(player);
-                remaining = interval * 20;
                 player.sendMessage(Text.literal("§c☄ TNT METEOR RAIN!"), true);
+                tntRemaining = TNT_INTERVAL_TICKS;
             }
-            CLOCKS.put(player.getUuid(), remaining);
+            TNT_CLOCKS.put(uuid, tntRemaining);
         }
-        if (ticks % 1200 == 0) CLOCKS.keySet().removeIf(uuid -> server.getPlayerManager().getPlayer(uuid) == null);
+        if (ticks % 1200 == 0) {
+            TNT_CLOCKS.keySet().removeIf(uuid -> server.getPlayerManager().getPlayer(uuid) == null);
+            LUCKY_CLOCKS.keySet().removeIf(uuid -> server.getPlayerManager().getPlayer(uuid) == null);
+        }
     }
 
     private static void spawnTntShower(ServerPlayerEntity player) {
