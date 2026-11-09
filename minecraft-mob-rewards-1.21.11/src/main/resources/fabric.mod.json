@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "mobrewards",
+  "version": "1.0.0",
+  "name": "Mob Kill Rewards",
+  "description": "Ten one-time mob-kill rewards per player. Piglin grants 32 gold ingots. Vanilla game rules govern TNT and fireball explosions.",
+  "authors": [
+    "yanbu3"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.yanbu3.mobrewards.MobRewardsMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
