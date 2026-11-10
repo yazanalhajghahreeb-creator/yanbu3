@@ -27,18 +27,28 @@ jobs:
       - name: Compile distributable JAR
         working-directory: minecraft-mob-rewards-1.21.11
         run: gradle --no-daemon build --stacktrace
+      - name: Verify custom item models, texture and client sync are packaged
+        working-directory: minecraft-mob-rewards-1.21.11
+        run: |
+          set -euo pipefail
+          JAR=build/libs/mob-rewards-1.21.11-1.0.1.jar
+          jar tf "$JAR" | grep -Fx 'assets/mobrewards/items/tnt_charge.json'
+          jar tf "$JAR" | grep -Fx 'assets/mobrewards/models/item/ghast_cannon.json'
+          jar tf "$JAR" | grep -Fx 'assets/mobrewards/textures/item/ghast_cannon.png'
+          jar tf "$JAR" | grep -Fx 'io/github/yanbu3/mobrewards/MobRewardsClient.class'
+          jar tf "$JAR" | grep -Fx 'io/github/yanbu3/mobrewards/SpiderClimbPayload.class'
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
         with:
-          name: mob-rewards-1.21.11-1.0.0
-          path: minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.0.jar
+          name: mob-rewards-1.21.11-1.0.1
+          path: minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.1.jar
           if-no-files-found: error
       - name: Publish JAR to GitHub branch
         if: github.ref == 'refs/heads/fabric-mob-rewards-1.21.11'
         shell: bash
         run: |
           mkdir -p minecraft-mob-rewards-1.21.11/dist
-          cp minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.0.jar minecraft-mob-rewards-1.21.11/dist/
+          cp minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.1.jar minecraft-mob-rewards-1.21.11/dist/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add minecraft-mob-rewards-1.21.11/dist/

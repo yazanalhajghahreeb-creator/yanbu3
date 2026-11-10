@@ -12,6 +12,8 @@ import net.fabricmc.fabric.api.entity.event.v1.effect.ServerMobEffectEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
@@ -114,6 +116,8 @@ public final class MobRewardsMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        // Register a server -> client packet before a client registers its receiver.
+        PayloadTypeRegistry.playS2C().register(SpiderClimbPayload.TYPE, SpiderClimbPayload.CODEC);
         // Touch custom item registrations before registry freeze.
         LOGGER.info("Mob Rewards items registered for Minecraft 1.21.11");
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -148,7 +152,10 @@ public final class MobRewardsMod implements ModInitializer {
             }
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            server.execute(() -> updatePlayer(handler.player));
+            server.execute(() -> {
+                updatePlayer(handler.player);
+                syncSpiderClimb(handler.player); // Re-enable across death/relogin/dimensions
+            });
         });
         CommandRegistrationCallback.EVENT.register((dispatcher, context, environment) -> {
             dispatcher.register(Commands.literal("mobpowers")
@@ -175,6 +182,12 @@ public final class MobRewardsMod implements ModInitializer {
                     return Command.SINGLE_SUCCESS;
                 }));
         });
+    }
+
+    private static void syncSpiderClimb(ServerPlayer player) {
+        if (ServerPlayNetworking.canSend(player, SpiderClimbPayload.TYPE)) {
+            ServerPlayNetworking.send(player, new SpiderClimbPayload(owns(player, Reward.SPIDER)));
+        }
     }
 
     private static Reward rewardFor(EntityType<?> type) {
@@ -214,7 +227,12 @@ public final class MobRewardsMod implements ModInitializer {
                 dropAtMob(killed, new ItemStack(Items.ENDER_PEARL, 4));
                 message(player, "4 Ender Pearls dropped.");
             }
-            case SPIDER -> message(player, "Wall climbing enabled automatically: walk into a wall, even from the ground (sneak to stop).");
+            case SPIDER -> {
+                // The player's client must know about this persistent unlock to apply
+                // movement prediction locally. No command or item is necessary.
+                syncSpiderClimb(player);
+                message(player, "Spider Climb unlocked! Hold W while facing a wall to climb; Shift to stop.");
+            }
             case WITCH -> {
                 applyEffects(player);
                 message(player, "Permanent Regeneration I and Poison immunity active.");
@@ -273,7 +291,8 @@ public final class MobRewardsMod implements ModInitializer {
                 player.onUpdateAbilities();
             }
         }
-        // Old implementation required the player to already be airborne and often never started climbing.
+        // Server-side assist; the client also applies upward movement on its own tick
+        // so vanilla client movement prediction will not override the climb.
         if (owns(player, Reward.SPIDER) && player.horizontalCollision && !player.isShiftKeyDown()
                 && !player.getAbilities().flying) {
             Vec3 old = player.getDeltaMovement();
