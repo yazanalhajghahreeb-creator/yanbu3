@@ -8,6 +8,7 @@ import com.mojang.brigadier.Command;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.effect.ServerMobEffectEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -31,6 +32,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
@@ -97,6 +99,13 @@ public final class MobRewardsMod implements ModInitializer {
             player.drop(stack, false);
         }
     }
+    /** Spawn rewards in the world at the defeated mob, never invisibly into inventory. */
+    private static void dropAtMob(LivingEntity mob, ItemStack stack) {
+        if (stack.isEmpty()) return;
+        ServerLevel world = (ServerLevel) mob.level();
+        ItemEntity dropped = new ItemEntity(world, mob.getX(), mob.getY() + 0.35, mob.getZ(), stack);
+        world.addFreshEntity(dropped);
+    }
     private static ItemStack named(Item item, String name) {
         ItemStack stack = new ItemStack(item);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
@@ -115,15 +124,23 @@ public final class MobRewardsMod implements ModInitializer {
             progress = null;
         });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-            // No pet kills, arrows, TNT, environmental deaths, or kill credit assists.
-            if (!(source.getDirectEntity() instanceof ServerPlayer player)) return;
-            if (source.getEntity() != player) return;
+            // Count actual kills credited to the player (melee or a projectile fired by them),
+            // not kills by pets, another player or the environment.
+            if (!(source.getEntity() instanceof ServerPlayer player)) return;
             Reward reward = rewardFor(entity.getType());
-            if (reward == null || progress == null) return;
-            if (!progress.grant(player.getUUID(), reward)) return;
-            award(player, reward);
-            message(player, "Unlocked " + reward.name() + " reward!");
+            if (reward == null || progress == null || !progress.isHealthy()) return;
+            boolean newlyUnlocked = progress.grant(player.getUUID(), reward);
+            // Keep persistent ability progress, but NEVER gate future item rewards on the flag.
+            award(player, entity, reward, newlyUnlocked);
+            message(player, "Reward for " + reward.name() + " " +
+                    (newlyUnlocked ? "unlocked and granted!" : "granted again!"));
         });
+        // Reject poison before it can be applied; tick-based cleanup is a backup.
+        ServerMobEffectEvents.ALLOW_ADD.register((effect, entity, context) ->
+            !(entity instanceof ServerPlayer player &&
+              owns(player, Reward.WITCH) &&
+              effect.getEffect().equals(MobEffects.POISON))
+        );
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             ++ticks;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -174,7 +191,7 @@ public final class MobRewardsMod implements ModInitializer {
         return null;
     }
 
-    private static void award(ServerPlayer player, Reward reward) {
+    private static void award(ServerPlayer player, LivingEntity killed, Reward reward, boolean newlyUnlocked) {
         switch (reward) {
             case ZOMBIE -> {
                 applyEffects(player);
@@ -185,34 +202,43 @@ public final class MobRewardsMod implements ModInitializer {
                 var enchantments = player.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
                 bow.enchant(enchantments.getOrThrow(Enchantments.POWER), 5);
                 bow.enchant(enchantments.getOrThrow(Enchantments.INFINITY), 1);
-                give(player, bow);
-                give(player, new ItemStack(Items.ARROW, 64));
+                dropAtMob(killed, bow);
+                dropAtMob(killed, new ItemStack(Items.ARROW, 64));
                 message(player, "Power V + Infinity bow, plus 64 arrows. Keep at least one normal arrow.");
             }
             case CREEPER -> {
-                give(player, new ItemStack(TNT_CHARGE, 5));
+                dropAtMob(killed, new ItemStack(TNT_CHARGE, 5));
                 message(player, "5 TNT charges: right-click a target within 30 blocks.");
             }
-            case ENDERMAN -> give(player, new ItemStack(Items.ENDER_EYE, 4));
-            case SPIDER -> message(player, "Wall climbing active: walk into walls to ascend (sneak to stop).");
+            case ENDERMAN -> {
+                dropAtMob(killed, new ItemStack(Items.ENDER_PEARL, 4));
+                message(player, "4 Ender Pearls dropped.");
+            }
+            case SPIDER -> message(player, "Wall climbing enabled automatically: walk into a wall, even from the ground (sneak to stop).");
             case WITCH -> {
                 applyEffects(player);
                 message(player, "Permanent Regeneration I and Poison immunity active.");
             }
             case BLAZE -> {
-                give(player, named(FLIGHT_TOGGLE, "Flight Toggle"));
-                message(player, "Right-click Flight Toggle or type /mobpowers flight.");
+                // Activate immediately on kill without requiring any command or click.
+                progress.setFlight(player.getUUID(), true);
+                if (!player.isCreative() && !player.isSpectator()) {
+                    player.getAbilities().mayfly = true;
+                    player.onUpdateAbilities();
+                }
+                dropAtMob(killed, named(FLIGHT_TOGGLE, "Flight Toggle"));
+                message(player, "Flight ON automatically! Double-tap Jump to fly; use the dropped Flight Toggle to turn it off/on.");
             }
             case GHAST -> {
-                give(player, named(GHAST_CANNON, "Ghast Cannon"));
+                dropAtMob(killed, named(GHAST_CANNON, "Ghast Cannon"));
                 message(player, "Right-click Ghast Cannon to fire a Ghast fireball.");
             }
             case PIGLIN -> {
-                give(player, new ItemStack(Items.GOLD_INGOT, 32));
+                dropAtMob(killed, new ItemStack(Items.GOLD_INGOT, 32));
                 message(player, "32 gold ingots for Piglin bartering.");
             }
             case WARDEN -> {
-                give(player, named(SONIC_FOCUS, "Sonic Focus"));
+                dropAtMob(killed, named(SONIC_FOCUS, "Sonic Focus"));
                 message(player, "Right-click Sonic Focus toward one hostile mob (4 second cooldown).");
             }
         }
@@ -247,11 +273,12 @@ public final class MobRewardsMod implements ModInitializer {
                 player.onUpdateAbilities();
             }
         }
+        // Old implementation required the player to already be airborne and often never started climbing.
         if (owns(player, Reward.SPIDER) && player.horizontalCollision && !player.isShiftKeyDown()
-                && !player.getAbilities().flying && !player.onGround()) {
+                && !player.getAbilities().flying) {
             Vec3 old = player.getDeltaMovement();
-            if (old.y < 0.24) {
-                player.setDeltaMovement(old.x, 0.24, old.z);
+            if (old.y < 0.28) {
+                player.setDeltaMovement(old.x, 0.28, old.z);
                 player.hurtMarked = true;
             }
             player.resetFallDistance();
@@ -418,6 +445,7 @@ public final class MobRewardsMod implements ModInitializer {
         boolean owns(UUID id, Reward reward) {
             return flags.getOrDefault(id, EnumSet.noneOf(Reward.class)).contains(reward);
         }
+        boolean isHealthy() { return !readFailed; }
         boolean grant(UUID id, Reward reward) {
             if (readFailed) return false;
             if (!flags.computeIfAbsent(id, x -> EnumSet.noneOf(Reward.class)).add(reward)) return false;
