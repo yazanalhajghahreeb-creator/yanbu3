@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[43,)"
+license="All Rights Reserved"
+[[mods]]
+modId="yanbu3_horror_heads"
+version="0.2.0"
+displayName="Yanbu3 Horror Heads"
+description='''Combat-compatible horror mobs and collectible named heads. Experimental: test with a world backup.'''
+[[dependencies.yanbu3_horror_heads]]
+modId="forge"
+mandatory=true
+versionRange="[43,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.yanbu3_horror_heads]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.19.2,1.19.3)"
+ordering="NONE"
+side="BOTH"
