@@ -29,12 +29,12 @@ jobs:
         run: |
           python - <<'PY'
           import zipfile, pathlib, json
-          path=pathlib.Path('minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars.jar')
+          path=pathlib.Path('minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.2.0-preview-29stars.jar')
           with zipfile.ZipFile(path) as z:
               assert z.testzip() is None
               names=z.namelist()
               assert len([n for n in names if n.startswith('assets/horrorstars/textures/item/stars/') and n.endswith('.png')]) == 29
-              assert len(names) == 190, len(names)
+              assert len(names) == 263, len(names)
               for n in names:
                   if n.endswith('.json') or n == 'pack.mcmeta':
                       json.loads(z.read(n))
@@ -44,6 +44,6 @@ jobs:
       - name: Upload downloadable JAR
         uses: actions/upload-artifact@v4
         with:
-          name: Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars
-          path: minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars.jar
+          name: Yanbu3-Horror-Stars-Forge-1.19.2-v1.2.0-preview-29stars
+          path: minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.2.0-preview-29stars.jar
           if-no-files-found: error
