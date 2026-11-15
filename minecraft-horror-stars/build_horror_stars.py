@@ -44,6 +44,17 @@ eyes|Eyes in the Darkness|eyesinthedarkness:eyes
 MASK = "eNq9kksSwyAMQ5Ew6f1vXBuHNsTETDfVIhN4Rv5AKb8JO84cIzdATQ2w47LlFZm9cSbHW8ZxHMYRWh5S3gM+Gk2dci4ujaOnInRlaqaTah3kt7C+NbjFgpw7E2muTmfsOS6YZLwaT2CVkaurU+mANNFqROhtWmnK8XRc/Lsw6KeV1NcjN2PPErnti3VN+4sFwGdCD40GuIyM8RUC08jCM78PlHeDUDDLX/QG3dEDeg=="
 PALETTES = "eNp9V9tu4zoM/Jc+68GSJdnaXykWhjfxNsY6ceE4LdrF+fcz1IVy5E3QGghlRRyRwyHz9+XQfwzd8XOYpmF5+fH6Wgn/91O82kZYKawWypg7U9JbWRmhrTBtfC1bJaQ1QjYqrijZCFXhvcSK9iumwicnVI1V5U9pKyENPdZ/66d4GS/rcjuWYKTD6UKyNzY9GIVPTSNcE18bJbQS5C3shk+pNZ72IRJV4zyLp2Ekp/E4/BpO4+VYYKmBl/zH09n0WCgO8CMBMbzHwboiPAmMxIbaA3oYFotPFQ5qmwTme16/37+WocgRDpZCpXtn00NxUhgpOCHS4kRZiaZOGaoa4TNgq8dQGroenkgEQHk7zbfpHgfuQjGX8eBsehxGi9aJJr2VyJaPguQEtUiOsx7MQyA4hcglbZ2ALMPHcOkvaxGTlohq0q2zGXgrAaYWDWevNYG3DF5R5sBbAvSYtwBjnWcMg+nfS9bWUtSIQyqhbAYoTeVdqyptwKktoqA4LkRIS0kyj4kr/dWwUiUol/HttJ77kiwah7S5KrIZ0LgYhIq9K0VxkrXhWBEcpMDVj+EoHOPIahOc659hGtb50h2WYdjHyAlkNMeIzUAdpMoIywgqqlCiDitBQyKAlVY/pw7l2HKI+sM8fa3Djjm6uWNONIPIoK7o5r44YzxgKSDSFXMHvGmJO08SRkFWOuhiQHOYl+X2vg7H7n2cpv6tjJFpSGhtYmg2PTAKEIDkvBnjBTWRkwq9Diyr3BPNoW+B0k27h/UBERwP/TrvewRSxQTJZqw1JRBya7c9AuR2ZtMifAE26nmp4bqb5F0Pt+Pxn/2qEvW2XwUz9itf9FzloV9J4eRduyJ6PRPDUPK+kQQsx/5WChA6kUK8062zGUS5uqtC0mCUFIsjlXFI4JNUkQyioUjDDDouYPTvaV76eyzkCv8pKNkMlEZMIDmJ8FTsxBttNh2DeOML+hGY2vnmkMoCYM79Z3eGLhdY0AjB3EbnvhhNGd9aKuz0mtoB1a1zXOnKN0WlnuiytoEsLXerZT786dYBaA5TUe8IM8kNlxWboZEbChRz1Q8RxA+eiEgpfbVUT6JDGu87l0mA1tPQ9cu54IymVs3szGYspFa0m8ZNQZE1DRk8bJEMOfhp5ZNKsj5Lm1b+Gx106Y7oXSUe9GtUT1K6bAY8CBIuZFhfpA6yVzEeKjxVhXs/EkJqstZsh79TvxJzCg5Lqh4u7GwGLDS4GdKR5Bv5B1gubD+9eGF7UtjU6ysq0TZPf8v1cHobxmtR3k7gqyaNXGzFwNA6pSBFrlZB4Zzmmtps0bsVwIHzz6Uf11MxdlJ/xga+VjKDZwqBUX4qiQJoiMt56tpu0LuV4HcaD4VXRfkTKh2azSggKvYybj5Qf/9wR7/bo3crwfF5vszT7srQOFSk44mFzegciXY0Wqa5koYVzaPH3Q5d2MFtv/yal7GfOowD8/V6uxaKRQd59Q65ZDOHHDXaJnfOD7n5J9HmvS4Xgv+B+uu8dNP43S/H7jyfz6VoUtfOP3yyGUJAlEFTl8xHak2YM3PCtjv0biWm/XYeLt00fIz9etqVn/JX5gPZjD+9bKgjnRBAEb0U5Ca/2aF3KwHB9fTVvd2+irtDkGtRJ5XJZkw/5QJXrdXd4CNZUIo9ercSk/A1FHknbkLRuCezGRwbOgILdbOdY7DKlN/u0LsVcvvf/zn9jr0="
 
+# Tiers approximate the creature size found in the bundled original mod JARs.
+HEALTH = {
+ 'cave_dweller':45, 'intruder':50, 'hidebehind':50, 'zotzpyre':35,
+ 'ghoul':35,'revenant':35,'reaper':45,'nightmare':50,'skeleton_creeper':35,
+ 'acolyte':35,'corrupted_pillager':35,'corrupted_vindicator':35,
+ 'scuddler':35,'daunt':45,'dracoflora':50,'maw_manta':50,'rock_tentacle':65,
+ 'the_arm':65,'fever_dream':45,'hat_man':45,'hirschgeist':50,'wraith':35,'lich':50,
+ 'monolith':65,'arborial_colossus':65,'eruptor_lizard_momma':50,'lumen_leviathan':65,
+ 'shy_guy':45, 'eyes':35
+}
+
 MOD_TOML = """modLoader="lowcodefml"
 loaderVersion="[43,)"
 license="All Rights Reserved"
@@ -51,7 +62,7 @@ showAsResourcePack=false
 
 [[mods]]
 modId="yanbu3_horror_stars"
-version="1.1.0-preview"
+version="1.2.0-preview"
 displayName="Yanbu3 Horror Stars (29-star preview)"
 description=""" + '"""29 horror creature star types from bundled mods; experimental gameplay not tested."""' + """
 
@@ -101,7 +112,7 @@ def build():
     mask = dec(MASK)
     palettes = json.loads(dec(PALETTES))
     assert len(stars)==29 and len(mask)==1024 and len(palettes)==29
-    dest = Path(__file__).resolve().parent / "Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars.jar"
+    dest = Path(__file__).resolve().parent / "Yanbu3-Horror-Stars-Forge-1.19.2-v1.2.0-preview-29stars.jar"
     with zipfile.ZipFile(dest,"w",zipfile.ZIP_DEFLATED,compresslevel=9) as out:
         def add(path,data):
             out.writestr(path,data)
@@ -113,17 +124,20 @@ scoreboard objectives add hs_unique dummy
 execute unless score TeamStars horrorstars matches 0.. run scoreboard players set TeamStars horrorstars 0
 scoreboard objectives setdisplay sidebar horrorstars
 schedule function horrorstars:scan 1s replace"""))
-        add("data/horrorstars/functions/balance.mcfunction",t("""attribute @s minecraft:generic.max_health base set 35
-data merge entity @s {Health:35.0f}
+        for hp in (35,45,50,65):
+            add(f"data/horrorstars/functions/balance_{hp}.mcfunction",
+                t(f"""attribute @s minecraft:generic.max_health base set {hp}
+data merge entity @s {{Health:{hp}.0f}}
 attribute @s minecraft:generic.attack_damage base set 6
-tag @s add horrorstars_balanced_v110"""))
+tag @s add horrorstars_balanced_v120"""))
         scan=[]
         reset=["scoreboard players set TeamStars horrorstars 0","scoreboard players reset * hs_unique"]
         overrides=[]
         for index,(slug,title,entities) in enumerate(stars):
             cmd=91001+index
             for entity in entities:
-                scan.append(f"execute as @e[type={entity},tag=!horrorstars_balanced_v110] run function horrorstars:balance")
+                hp=35 if entity=="the_intruder:observer" else HEALTH.get(slug,35)
+                scan.append(f"execute as @e[type={entity},tag=!horrorstars_balanced_v120] run function horrorstars:balance_{hp}")
             overrides.append({"predicate":{"custom_model_data":cmd},"model":f"horrorstars:item/stars/{slug}"})
             add(f"assets/horrorstars/models/item/stars/{slug}.json",j({"parent":"minecraft:item/generated","textures":{"layer0":f"horrorstars:item/stars/{slug}"}}))
             add(f"assets/horrorstars/textures/item/stars/{slug}.png",star_png(slug,mask,palettes))
@@ -143,6 +157,14 @@ tag @s add horrorstars_balanced_v110"""))
                 alt=slug if i==0 else f"{slug}_alt{i}"
                 kill_ids.append(alt)
                 add(f"data/horrorstars/advancements/kill/{alt}.json",j({"criteria":{"killed":{"trigger":"minecraft:player_killed_entity","conditions":{"entity":{"type":entity}}}},"rewards":{"function":f"horrorstars:drop/{slug}"}}))
+                # Uses Minecraft's confirmed-hurt event; visible particles replace missing custom-renderer hit flash.
+                add(f"data/horrorstars/advancements/hit/{alt}.json",j({"criteria":{"hit":{"trigger":"minecraft:player_hurt_entity","conditions":{"entity":{"type":entity},"damage":{"dealt":{"min":0.1}}}}},"rewards":{"function":f"horrorstars:hit/{alt}"}}))
+                hit = [
+                    f"advancement revoke @s only horrorstars:hit/{alt}",
+                    f"execute at @s as @e[type={entity},distance=..12,sort=nearest,limit=1] at @s run particle minecraft:damage_indicator ~ ~1.4 ~ 0.5 0.5 0.5 0.1 10 force",
+                    f"execute at @s as @e[type={entity},distance=..12,sort=nearest,limit=1] at @s run particle minecraft:dust 1 0.07 0.07 0.9 ~ ~1.4 ~ 0.5 0.6 0.5 0 10 normal"
+                ]
+                add(f"data/horrorstars/functions/hit/{alt}.mcfunction",t("\n".join(hit)))
             itemname=json.dumps({"text":title+" Horror Star","italic":False,"color":"gold"},separators=(",",":"))
             lore=json.dumps({"text":"Collected from "+title,"color":"gray","italic":False},separators=(",",":"))
             nbt=('{Item:{id:"minecraft:nether_star",Count:1b,tag:{CustomModelData:'+str(cmd)+',HorrorStarId:"horrorstars:'+slug+'",display:{Name:\''+itemname+'\',Lore:[\''+lore+'\']}}},PickupDelay:0s,Age:0s}')
@@ -157,7 +179,7 @@ tag @s add horrorstars_balanced_v110"""))
         add("data/horrorstars/functions/help.mcfunction",t('tellraw @s {"text":"Horror Stars 29-star PREVIEW; win at 10 different stars. Not all mods audited.","color":"gold"}'))
         add("assets/minecraft/models/item/nether_star.json",j({"parent":"minecraft:item/generated","textures":{"layer0":"minecraft:item/nether_star"},"overrides":overrides}))
         add("data/horrorstars/README.txt",t("PREVIEW: 29 stars from bundled horror mod JARs. Other downloadable mods not fully audited. Runtime gameplay not tested."))
-    assert len(zipfile.ZipFile(dest).namelist()) == 190
+    assert len(zipfile.ZipFile(dest).namelist()) == 263
     print(f"Built {dest.name}: {dest.stat().st_size} bytes, 29 stars")
 
 if __name__=="__main__":
