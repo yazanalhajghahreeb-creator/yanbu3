@@ -1,0 +1,49 @@
+name: Build Horror Stars JAR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'minecraft-horror-stars/build_horror_stars.py'
+      - '.github/workflows/build-horror-stars.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build Forge 1.19.2 lowcode JAR
+        run: python minecraft-horror-stars/build_horror_stars.py
+
+      - name: Validate JAR archive and assets
+        run: |
+          python - <<'PY'
+          import zipfile, pathlib, json
+          path=pathlib.Path('minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars.jar')
+          with zipfile.ZipFile(path) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              assert len([n for n in names if n.startswith('assets/horrorstars/textures/item/stars/') and n.endswith('.png')]) == 29
+              assert len(names) == 190, len(names)
+              for n in names:
+                  if n.endswith('.json') or n == 'pack.mcmeta':
+                      json.loads(z.read(n))
+          print('Verified:', path, 'size', path.stat().st_size)
+          PY
+
+      - name: Upload downloadable JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars
+          path: minecraft-horror-stars/Yanbu3-Horror-Stars-Forge-1.19.2-v1.1.0-preview-29stars.jar
+          if-no-files-found: error
