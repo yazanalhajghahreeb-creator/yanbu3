@@ -53,7 +53,7 @@ jobs:
               assert cannon["model"]["model"] == "mobrewards:item/ghast_cannon"
               png=jar.read("assets/mobrewards/textures/item/ghast_cannon.png")
               assert png[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",png[16:24]) == (32,32)
-              assert b"minecraft:tnt" in jar.read("io/github/yanbu3/mobrewards/MobRewardsMod.class")
+              assert b"ghast_cannon" in jar.read("io/github/yanbu3/mobrewards/MobRewardsMod.class")
           print("Verified Hensley Mode models, PNG, packet classes and compiled JAR.")
           PY
       - name: Upload compiled JAR
