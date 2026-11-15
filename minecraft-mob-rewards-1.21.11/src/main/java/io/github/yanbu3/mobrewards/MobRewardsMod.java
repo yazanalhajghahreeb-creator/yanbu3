@@ -76,8 +76,12 @@ public final class MobRewardsMod implements ModInitializer {
 
     public enum Reward { ZOMBIE, SKELETON, CREEPER, ENDERMAN, SPIDER, WITCH, BLAZE, GHAST, PIGLIN, WARDEN }
 
-    public static final Item TNT_CHARGE = register("tnt_charge", new TNTChargeItem(properties("tnt_charge").stacksTo(16)));
-    public static final Item GHAST_CANNON = register("ghast_cannon", new GhastCannonItem(properties("ghast_cannon").stacksTo(1)));
+    // Use the vanilla TNT item model *component*, not just an external model redirect.
+    // This makes every TNT charge render exactly like the original TNT block in 1.21.11.
+    public static final Item TNT_CHARGE = register("tnt_charge", new TNTChargeItem(
+        properties("tnt_charge").component(DataComponents.ITEM_MODEL, Identifier.withDefaultNamespace("tnt")).stacksTo(16)));
+    public static final Item GHAST_CANNON = register("ghast_cannon", new GhastCannonItem(
+        properties("ghast_cannon").component(DataComponents.ITEM_MODEL, id("ghast_cannon")).stacksTo(1)));
     public static final Item FLIGHT_TOGGLE = register("flight_toggle", new FlightToggleItem(properties("flight_toggle").stacksTo(1)));
     public static final Item SONIC_FOCUS = register("sonic_focus", new SonicFocusItem(properties("sonic_focus").stacksTo(1)));
 
@@ -96,7 +100,17 @@ public final class MobRewardsMod implements ModInitializer {
     private static void message(ServerPlayer player, String text) {
         player.sendSystemMessage(Component.literal("[Mob Rewards] " + text));
     }
+    private static void fixVisualModel(ItemStack stack) {
+        // Also repairs existing item stacks from older releases without requiring new kills.
+        Identifier correct = null;
+        if (stack.is(TNT_CHARGE)) correct = Identifier.withDefaultNamespace("tnt");
+        if (stack.is(GHAST_CANNON)) correct = id("ghast_cannon");
+        if (correct != null && !correct.equals(stack.get(DataComponents.ITEM_MODEL))) {
+            stack.set(DataComponents.ITEM_MODEL, correct);
+        }
+    }
     private static void give(ServerPlayer player, ItemStack stack) {
+        fixVisualModel(stack);
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
         }
@@ -104,12 +118,14 @@ public final class MobRewardsMod implements ModInitializer {
     /** Spawn rewards in the world at the defeated mob, never invisibly into inventory. */
     private static void dropAtMob(LivingEntity mob, ItemStack stack) {
         if (stack.isEmpty()) return;
+        fixVisualModel(stack);
         ServerLevel world = (ServerLevel) mob.level();
         ItemEntity dropped = new ItemEntity(world, mob.getX(), mob.getY() + 0.35, mob.getZ(), stack);
         world.addFreshEntity(dropped);
     }
     private static ItemStack named(Item item, String name) {
         ItemStack stack = new ItemStack(item);
+        fixVisualModel(stack);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
         return stack;
     }
@@ -149,6 +165,8 @@ public final class MobRewardsMod implements ModInitializer {
             ++ticks;
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 updatePlayer(player);
+                // Re-send on a timer: fixes packet timing on login, respawns and dimension changes.
+                if (ticks % 100 == 0 && owns(player, Reward.SPIDER)) syncSpiderClimb(player);
             }
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -195,7 +213,7 @@ public final class MobRewardsMod implements ModInitializer {
         if (type == EntityType.SKELETON) return Reward.SKELETON;
         if (type == EntityType.CREEPER) return Reward.CREEPER;
         if (type == EntityType.ENDERMAN) return Reward.ENDERMAN;
-        if (type == EntityType.SPIDER) return Reward.SPIDER;
+        if (type == EntityType.SPIDER || type == EntityType.CAVE_SPIDER) return Reward.SPIDER;
         if (type == EntityType.WITCH) return Reward.WITCH;
         if (type == EntityType.BLAZE) return Reward.BLAZE;
         if (type == EntityType.GHAST) return Reward.GHAST;
@@ -231,7 +249,7 @@ public final class MobRewardsMod implements ModInitializer {
                 // The player's client must know about this persistent unlock to apply
                 // movement prediction locally. No command or item is necessary.
                 syncSpiderClimb(player);
-                message(player, "Spider Climb unlocked! Hold W while facing a wall to climb; Shift to stop.");
+                message(player, "Spider Climb unlocked! Hold W against a solid wall to climb automatically. No commands.");
             }
             case WITCH -> {
                 applyEffects(player);
@@ -280,6 +298,12 @@ public final class MobRewardsMod implements ModInitializer {
 
     private static void updatePlayer(ServerPlayer player) {
         if (progress == null) return;
+        // Fix old saved stacks in the player's inventory (the exact old items can be kept).
+        if (ticks % 40 == 0) {
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                fixVisualModel(player.getInventory().getItem(slot));
+            }
+        }
         // Poison is removed every tick, before the next living-entity effect tick.
         if (owns(player, Reward.WITCH)) player.removeEffect(MobEffects.POISON);
         if (ticks % 40 == 0) {

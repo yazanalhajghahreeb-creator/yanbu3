@@ -1,45 +1,49 @@
-# Minecraft Mob Kill Rewards – Fabric 1.21.11
+# Hensley Mode — Minecraft Java 1.21.11 (Fabric)
 
-**Repeatable rewards on every kill credited to the player** (melee or their projectiles). Item rewards drop at the mob's position; permanent abilities are unlocked per player and persist across death and rejoin.
+This is **Hensley Mode v1.1.0**. It keeps the existing mod ID `mobrewards` and the world-save file `mobrewards-progress.json` so earlier unlocks remain available. Do **not** install it alongside the old Mob Rewards JAR: both use the same mod ID.
+
+## What changed in v1.1.0
+- **Creeper TNT Charge:** forced `minecraft:item_model = minecraft:tnt`, the identical item model used by the vanilla TNT block, on new and legacy item stacks. Its 5-charge explosive behavior is unchanged.
+- **Ghast Cannon:** distinct custom 32 × 32 pixel-art cannon item texture; `minecraft:item_model = mobrewards:ghast_cannon` is explicitly set and repaired on older stacks. The special launcher is not an ordinary Ghast Tear.
+- **Spider Climb:** no item and no command. Killing a Spider or Cave Spider unlocks the saved ability for that player. Press and hold **W** against a solid wall. The client detects the block ahead and applies upward motion before movement plus a small collision-checked step afterward. Hold **Shift** or release W to stop. The unlock packet re-syncs periodically and when joining.
+- A client-facing action-bar notification confirms when Spider Climb state is synced.
 
 ## Rewards
-- Zombie: permanent Strength II (auto-refreshes after death/login/dimension changes).
-- Skeleton: named bow with Power V and Infinity; 64 normal arrows; Infinity uses no arrows as long as you keep one normal arrow in inventory.
-- Creeper: 5 instant-use TNT charges displayed using the real 3D TNT block model. Right-click toward a block within 30 blocks to explode there. Block destruction follows vanilla TNT/world settings.
-- Enderman: 4 **Ender Pearls** dropped.
-- Spider: automatically unlocks wall climbing when killed. Hold W while facing and touching a wall (even from the ground); release W or hold Shift to stop. Client-side movement plus server-side assist; ability syncs when joining a world.
-- Witch: permanent Regeneration I and clears/prevents Poison effect via each-tick cleanse.
-- Blaze: flight immediately enabled on kill; Flight Toggle item drops on the ground and right-click toggles flight (no OP or command necessary); double-tap Jump to start flying. Flight preference persists on death/rejoin.
-- Ghast: Ghast Cannon item with a unique pixel-art cannon texture (not a Ghast Tear). Right-click to launch a real Ghast fireball (1.5s cooldown).
-- Piglin: **32 gold ingots** to barter.
-- Warden: Sonic Focus item. Right-click while aiming at a hostile mob within 32 blocks to deal lethal sonic damage. Players, animals and neutral creatures are never targeted. 4-second cooldown.
+- Zombie: permanent Strength II.
+- Skeleton: Power V + Infinity bow and 64 arrows drop.
+- Creeper: 5 TNT Charges drop per kill.
+- Enderman: 4 Ender Pearls drop.
+- Spider / Cave Spider: persistent auto-climb unlock.
+- Witch: Regeneration I, protection against Poison effect.
+- Blaze: flight enabled on kill, plus Flight Toggle item.
+- Ghast: custom Ghast Cannon.
+- Piglin: 32 gold ingots per kill.
+- Warden: Sonic Focus aimed hostile-only sonic attack with cooldown.
+
+Rewards repeat on credited kills, while ability unlocks remain stored per player in the world save.
 
 ## Installation
-1. Install the **Minecraft Java 1.21.11** Fabric Loader.
-2. Install Fabric API compatible with 1.21.11 (tested against **0.141.1+1.21.11**).
-3. Copy dist/mob-rewards-1.21.11-1.0.1.jar (latest branch build) to your .minecraft/mods folder.
-4. Launch Minecraft with the Fabric 1.21.11 profile. For multiplayer, the mod and Fabric API must be on the server and clients.
+1. **Remove ALL previous** `mob-rewards*.jar` or `Hensley*.jar` from your `.minecraft/mods` directory. Never run old and new builds together.
+2. Use **Fabric Loader for Minecraft Java 1.21.11** and compatible **Fabric API**.
+3. Install **`Hensley-Mode-1.21.11-1.1.0.jar`** into the `mods` folder. For multiplayer, install the same build and Fabric API on **both the client and server**.
+4. Launch, and check that the Fabric Mods menu shows **Hensley Mode 1.1.0**. If it still shows Mob Kill Rewards or 1.0.1, the older build is being loaded.
+5. For Spider, kill a Spider (or reuse an existing Spider unlock), walk against a solid vertical wall while holding W without Shift. The action bar should show the Hensley Mode sync message when unlocked.
 
-## Commands
-- /mobpowers status: inspect your unlocked rewards.
-- /mobpowers flight: toggle your Blaze flight permission without OP.
-- /mobpowers restore: replaces missing **reusable** flight/cannon/sonic items when you've unlocked them; never refills TNT/gold/arrows/Eyes of Ender.
+## Commands (optional)
+- `/mobpowers status` shows unlocked abilities.
+- `/mobpowers flight` toggles Blaze flight permission.
+- `/mobpowers restore` reissues missing reusable ability items; consumables only drop on mob kills.
 
-## Persistence and limitations
-- World save file: mobrewards-progress.json at the server world root; keyed by player UUID; stores ability unlocks and flight preference (NOT a one-time reward limit). Back it up with your world.
-- Grants are server-authoritative, rewards earned on kills credited to a player (melee or their projectiles), not pet, environmental or other player kills.
-- Permanent effects are implemented by short potion durations refreshed indefinitely rather than an infinite effect instance. Regeneration is level I.
-- Poison immunity uses a server-side effect-application event to reject Poison, with every-tick removal as a backup; third-party mod effects may use other mechanisms.
-- Spider ascent uses synchronized client movement prediction plus server-assisted motion. Both client and server need the mod; a server configured to block all nonstandard upward movement may still require allowing modded player motion.
-- Consumables drop each time the matching mob is killed; utility items also drop each time. /mobpowers restore is an optional recovery command for missing reusable tools.
-- TNT attacks a targeted block/point instantly instead of physically flying as a projectile; Ghast cannon fires a vanilla LargeFireball projectile.
-- Single-target Sonic Focus requires a hostile mob within 32 blocks and unobstructed view, and applies lethal sonic damage. Mobs immune to damage via another mod may survive.
-- Existing player progress is not transferred between **different worlds**; each world stores its own data.
-- Tested via CI compile only unless independently tested in a game instance.
+## Technical limitations and verification
+- The build pipeline compiles with Minecraft 1.21.11 Mojang mappings, Fabric Loader 0.18.1, and Fabric API 0.141.1+1.21.11 on Java 21.
+- JAR checks verify the displayed mod name/version, actual item-model definitions, custom texture file (and PNG dimensions), and bundled client/server climb classes. A successful build is **not** an in-game integration test; actual climbing and visuals should still be confirmed in-game.
+- Very aggressive multiplayer movement anti-cheats may reject upward movement: first test with a local Fabric world.
+- The world save `mobrewards-progress.json` is unchanged in format; do not remove it unless resetting all powers is intentional.
+- The Ghast Cannon remains a vanilla Ghast-fireball launcher. TNT charge detonation respects vanilla explosion settings.
+- All previous reward functionality remains enabled; two new display-model bindings specifically prevent item model fallback.
 
 ## Build
-Run with Java 21 and Gradle 9.2.1:
-    gradle --no-daemon build
-The distributable is build/libs/mob-rewards-1.21.11-1.0.1.jar (not the -sources or -dev jar).
-
-GitHub Actions compiles and commits the distributable into dist/ when the build passes. No administrative in-game commands are used for abilities.
+```bash
+gradle --no-daemon build
+```
+Output: `build/libs/Hensley-Mode-1.21.11-1.1.0.jar`. The GitHub Actions workflow publishes the same JAR into `dist/`.

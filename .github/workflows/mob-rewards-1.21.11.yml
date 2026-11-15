@@ -1,4 +1,4 @@
-name: Build Mob Rewards Fabric 1.21.11
+name: Build Hensley Mode Fabric 1.21.11
 on:
   push:
     branches: [fabric-mob-rewards-1.21.11]
@@ -27,31 +27,51 @@ jobs:
       - name: Compile distributable JAR
         working-directory: minecraft-mob-rewards-1.21.11
         run: gradle --no-daemon build --stacktrace
-      - name: Verify custom item models, texture and client sync are packaged
+      - name: Verify compiled mod metadata, item models, texture and climb classes
         working-directory: minecraft-mob-rewards-1.21.11
         run: |
-          set -euo pipefail
-          JAR=build/libs/mob-rewards-1.21.11-1.0.1.jar
-          jar tf "$JAR" | grep -Fx 'assets/mobrewards/items/tnt_charge.json'
-          jar tf "$JAR" | grep -Fx 'assets/mobrewards/models/item/ghast_cannon.json'
-          jar tf "$JAR" | grep -Fx 'assets/mobrewards/textures/item/ghast_cannon.png'
-          jar tf "$JAR" | grep -Fx 'io/github/yanbu3/mobrewards/MobRewardsClient.class'
-          jar tf "$JAR" | grep -Fx 'io/github/yanbu3/mobrewards/SpiderClimbPayload.class'
+          python3 - <<'PY'
+          import json, zipfile, struct
+          path = "build/libs/Hensley-Mode-1.21.11-1.1.0.jar"
+          with zipfile.ZipFile(path) as jar:
+              members = set(jar.namelist())
+              for member in (
+                  "assets/mobrewards/items/tnt_charge.json",
+                  "assets/mobrewards/items/ghast_cannon.json",
+                  "assets/mobrewards/models/item/ghast_cannon.json",
+                  "assets/mobrewards/textures/item/ghast_cannon.png",
+                  "io/github/yanbu3/mobrewards/MobRewardsClient.class",
+                  "io/github/yanbu3/mobrewards/SpiderClimbPayload.class",
+                  "io/github/yanbu3/mobrewards/MobRewardsMod.class",
+              ):
+                  assert member in members, f"Missing from final JAR: {member}"
+              manifest=json.loads(jar.read("fabric.mod.json"))
+              assert manifest["name"] == "Hensley Mode" and manifest["version"] == "1.1.0"
+              tnt=json.loads(jar.read("assets/mobrewards/items/tnt_charge.json"))
+              assert tnt["model"]["model"] == "minecraft:block/tnt"
+              cannon=json.loads(jar.read("assets/mobrewards/items/ghast_cannon.json"))
+              assert cannon["model"]["model"] == "mobrewards:item/ghast_cannon"
+              png=jar.read("assets/mobrewards/textures/item/ghast_cannon.png")
+              assert png[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",png[16:24]) == (32,32)
+              assert b"minecraft:tnt" in jar.read("io/github/yanbu3/mobrewards/MobRewardsMod.class")
+          print("Verified Hensley Mode models, PNG, packet classes and compiled JAR.")
+          PY
       - name: Upload compiled JAR
         uses: actions/upload-artifact@v4
         with:
-          name: mob-rewards-1.21.11-1.0.1
-          path: minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.1.jar
+          name: Hensley-Mode-1.21.11-1.1.0
+          path: minecraft-mob-rewards-1.21.11/build/libs/Hensley-Mode-1.21.11-1.1.0.jar
           if-no-files-found: error
       - name: Publish JAR to GitHub branch
         if: github.ref == 'refs/heads/fabric-mob-rewards-1.21.11'
         shell: bash
         run: |
           mkdir -p minecraft-mob-rewards-1.21.11/dist
-          cp minecraft-mob-rewards-1.21.11/build/libs/mob-rewards-1.21.11-1.0.1.jar minecraft-mob-rewards-1.21.11/dist/
+          rm -f minecraft-mob-rewards-1.21.11/dist/mob-rewards-1.21.11-1.0.0.jar minecraft-mob-rewards-1.21.11/dist/mob-rewards-1.21.11-1.0.1.jar
+          cp minecraft-mob-rewards-1.21.11/build/libs/Hensley-Mode-1.21.11-1.1.0.jar minecraft-mob-rewards-1.21.11/dist/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add minecraft-mob-rewards-1.21.11/dist/
+          git add -A minecraft-mob-rewards-1.21.11/dist/
           if ! git diff --cached --quiet; then
             git commit -m "CI: publish compiled Fabric mob rewards jar"
             git push
