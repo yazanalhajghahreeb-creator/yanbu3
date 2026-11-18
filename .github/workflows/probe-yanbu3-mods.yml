@@ -1,0 +1,47 @@
+name: Verify Horror Modpack Sources
+
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-yanbu3-mods.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query official Modrinth version metadata
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.parse, json, hashlib, zipfile, io
+          def api(path):
+              req=urllib.request.Request("https://api.modrinth.com/v2/"+path,headers={"User-Agent":"Yanbu3-Forge-1192-PackBuilder/1.0"})
+              with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          for slug in ("full-brightness-toggle","essential","in-control"):
+              try:
+                  q=urllib.parse.urlencode({'loaders':json.dumps(['forge']),'game_versions':json.dumps(['1.19.2'])})
+                  v=api('project/'+slug+'/version?'+q)
+                  v=[a for a in v if a.get('version_type')=='release']
+                  v.sort(key=lambda a:a['date_published'],reverse=True)
+                  for a in v[:2]:
+                      f=next((x for x in a['files'] if x.get('primary')),a['files'][0])
+                      print("ADDON "+json.dumps({'slug':slug,'version':a['version_number'],'game_versions':a['game_versions'],'loaders':a['loaders'],'date':a['date_published'],'filename':f['filename'],'url':f['url'],'sha1':f['hashes'].get('sha1'),'sha512':f['hashes'].get('sha512'),'size':f['size'],'dependencies':a['dependencies']},separators=(',',':')))
+              except Exception as e: print('ADDON ERROR',slug,str(e))
+          try:
+              v=api('project/all-the-horror-creatures/version')
+              a=next(x for x in v if x['version_number']=='1.0.0')
+              f=next(x for x in a['files'] if x.get('primary')),a['files'][0])
+              print('PACK_URL',f['url'])
+              req=urllib.request.Request(f['url'],headers={'User-Agent':'Yanbu3-Forge-1192-PackBuilder/1.0'})
+              with urllib.request.urlopen(req,timeout=120) as response: b=response.read()
+              print('PACK_SIZE',len(b),'sha256',hashlib.sha256(b).hexdigest())
+              with zipfile.ZipFile(io.BytesIO(b)) as z:
+                  for n in ('overrides/mods/Dangers in the Darkness_1.0.36_Forge_1.19.2.jar','overrides/mods/Cave Dweller Reimagined.jar','overrides/mods/The_Graveyard_2.5.3_(FORGE)_for_1.19.2..jar','overrides/mods/ShyGuy-forge-1.19.2-3.2.jar'):
+                      if n in z.namelist():print('PACK_MOD_SHA256',n,hashlib.sha256(z.read(n)).hexdigest())
+                      else:print('PACK_MOD_MISSING',n)
+                  print('PACK_FILES',len(z.namelist()),'INDEX_ENTRIES',len(json.loads(z.read('modrinth.index.json'))['files']))
+          except Exception as e:print('PACK_ERROR',repr(e))
+          PY
